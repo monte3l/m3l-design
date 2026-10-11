@@ -141,7 +141,8 @@ if ((dry_run)); then
     printf '  would replace design/source/, design/tokens.css and design/SHA256SUMS\n'
     printf '  files that would change:\n'
     for item in source tokens.css SHA256SUMS; do
-      diff -rq "$tmp/payload/$item" "$consumer/design/$item" 2>&1 | sed 's/^/    /' || true
+      diff -rq "$tmp/payload/$item" "$consumer/design/$item" 2>&1 \
+        | sed -e "s#$tmp/payload#m3l-design#g" -e "s#$consumer/design#design#g" -e 's/^/    /' || true
     done
   else
     printf '  content tier: no files are copied\n'
