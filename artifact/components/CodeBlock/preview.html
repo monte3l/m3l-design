@@ -1,0 +1,17 @@
+<!-- @dsCard group="Docs" height=300 subtitle="Block with header, and inline code" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>CodeBlock — preview</title></head>
+<body>
+<div class="m3l-stack">
+<figure class="m3l-code-block">
+  <figcaption class="m3l-code-block__header caption"><span class="m3l-code-block__lang">bash</span><span>install.sh</span></figcaption>
+  <pre tabindex="0" aria-label="bash, install.sh"><code class="code"><span class="m3l-code-comment"># Copy the baseline into this repo, then review the diff</span>
+npx @monte3l/m3l-groundwork init --dir .
+<span class="m3l-code-strong">git</span> add -A &amp;&amp; git diff --cached --stat
+<span class="m3l-code-comment"># 0O 1lI| {} [] `backtick` -> 12 files, 1,048,576 bytes</span></code></pre>
+</figure>
+<p class="body m3l-prose">Set <code class="code m3l-code-inline">GROUNDWORK_DIR</code> to write somewhere other than the repo root.</p>
+</div>
+</body>
+</html>

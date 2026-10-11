@@ -1,0 +1,58 @@
+<!-- @dsCard height=288 -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>m3l-design</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--color-surface-default); color: var(--color-text-primary); font-family: var(--font-sans); overflow: hidden; }
+  .cover { position: relative; width: 960px; height: 288px; overflow: hidden; }
+  .band { position: absolute; top: 0; left: 0; width: 960px; height: 112px; }
+  .band svg { display: block; width: 960px; height: 112px; }
+  .accent { fill: var(--color-accent-default); }
+  .ink    { fill: var(--color-text-primary); }
+  .tint   { fill: var(--color-accent-tint-border); }
+  .quiet  { fill: var(--color-border-default); }
+  .ground { fill: var(--color-surface-default); }
+  .r-xl { rx: var(--radius-xl); }
+  .r-lg { rx: var(--radius-lg); }
+  .glyph { font-family: var(--font-sans); font-weight: var(--text-emphasis-weight); font-size: 232px; font-variant-numeric: var(--font-variant-numeric); }
+  .words { position: absolute; left: var(--space-6); bottom: var(--space-6); max-width: 440px; }
+  .name {
+    margin: 0;
+    font-size: 64px;
+    line-height: var(--text-line-height);
+    font-weight: var(--text-emphasis-weight);
+    letter-spacing: var(--text-letter-spacing-700);
+    color: var(--color-text-primary);
+    white-space: nowrap;
+  }
+  .tag { margin: var(--space-1) 0 0; color: var(--color-text-secondary); }
+</style>
+</head>
+<body>
+<div class="cover">
+<div class="band" aria-hidden="true">
+<svg viewBox="0 0 960 112" width="960" height="112">
+<!--
+  blocks      color-accent-default 432x136 (the one brand hue, largest, bleeds off the top) · color-text-primary 192x112 (deep ink) · color-accent-tint-border 120x136 (the tint) · color-border-default 144x88 (neutral, bleeds off the right) = ~35% of 960x288
+  arrangement top-band skeleton (the name at the 0.6em+tracking estimate is 442px at 64px, over the 440px zone): a strip of unequal slabs, space-6 gutters, bottoms staggered on space-6 steps
+  pattern     one oversized glyph clipped by a block: Atkinson Hyperlegible Next's slashed zero, cut out of the accent slab in the ground colour. Telling 0 from O is the reason this system picked its typeface.
+  scales      sides and gutters in space-6 (24px) multiples; corners radius-xl on the slab, radius-lg on the rest; glyph weight text-emphasis-weight
+-->
+<defs><clipPath id="slab"><rect x="24" y="-24" width="432" height="136" rx="16"/></clipPath></defs>
+<rect class="accent r-xl" x="24" y="-24" width="432" height="136" rx="16"/>
+<g clip-path="url(#slab)"><text class="glyph ground" x="264" y="178">0</text></g>
+<rect class="ink r-lg" x="480" y="-24" width="192" height="112" rx="12"/>
+<rect class="tint r-lg" x="696" y="-24" width="120" height="136" rx="12"/>
+<rect class="quiet r-lg" x="840" y="0" width="144" height="88" rx="12"/>
+</svg>
+</div>
+<div class="words">
+<h1 class="name">m3l-design</h1>
+<p class="tag caption">Warm, legible foundations for everything monte3l builds.</p>
+</div>
+</div>
+</body>
+</html>

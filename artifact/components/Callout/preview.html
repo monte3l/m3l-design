@@ -1,0 +1,43 @@
+<!-- @dsCard group="Docs" height=660 subtitle="Note, done, warning, danger, neutral" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Callout — preview</title></head>
+<body>
+<div class="m3l-stack">
+<aside class="m3l-callout" data-status="info" role="note" aria-label="Note">
+  <svg class="m3l-icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 6.5v.01"/></svg>
+  <div class="m3l-callout__content">
+    <p class="m3l-callout__title label">Note</p>
+    <p class="m3l-callout__body body">The bootstrap writes files once and exits. Re-running it never overwrites a file you have changed.</p>
+  </div>
+</aside>
+<aside class="m3l-callout" data-status="success" role="note" aria-label="Done">
+  <svg class="m3l-icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8"/><path d="M6.5 10.5 9 13l4.5-5.5"/></svg>
+  <div class="m3l-callout__content">
+    <p class="m3l-callout__title label">Done</p>
+    <p class="m3l-callout__body body">12 files written in 0.8 s. Commit them like any other code you own.</p>
+  </div>
+</aside>
+<aside class="m3l-callout" data-status="warning" role="note" aria-label="Warning">
+  <svg class="m3l-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5 18 17H2Z"/><path d="M10 8v3.5M10 14.5v.01"/></svg>
+  <div class="m3l-callout__content">
+    <p class="m3l-callout__title label">Warning</p>
+    <p class="m3l-callout__body body">Node 20 or later is required. On Node 18 the install step stops with exit code 1.</p>
+  </div>
+</aside>
+<aside class="m3l-callout" data-status="danger" role="note" aria-label="Danger">
+  <svg class="m3l-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M7 2h6l5 5v6l-5 5H7l-5-5V7Z"/><path d="m7.5 7.5 5 5m0-5-5 5"/></svg>
+  <div class="m3l-callout__content">
+    <p class="m3l-callout__title label">Danger</p>
+    <p class="m3l-callout__body body"><span class="code m3l-code-inline">--force</span> replaces every generated file, including ones you edited. There is no undo.</p>
+  </div>
+</aside>
+<aside class="m3l-callout" role="note" aria-label="Aside">
+  <div class="m3l-callout__content">
+    <p class="m3l-callout__title label">Aside</p>
+    <p class="m3l-callout__body body">A neutral callout has no status, so it needs no icon: use it for asides and context.</p>
+  </div>
+</aside>
+</div>
+</body>
+</html>

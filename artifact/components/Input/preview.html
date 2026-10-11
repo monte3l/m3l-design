@@ -1,0 +1,23 @@
+<!-- @dsCard group="Forms" height=336 subtitle="Default, error, disabled" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Input — preview</title></head>
+<body>
+<div class="m3l-stack">
+<div class="m3l-field">
+  <label class="m3l-field__label label" for="pkg">Package name</label>
+  <input class="m3l-input body" id="pkg" name="pkg" placeholder="@monte3l/my-app" aria-describedby="pkg-hint">
+  <p class="m3l-field__hint caption" id="pkg-hint">Lowercase, with a scope. Used for the README title.</p>
+</div>
+<div class="m3l-field">
+  <label class="m3l-field__label label" for="port">Dev server port <span class="m3l-field__optional caption">(optional)</span></label>
+  <input class="m3l-input body" id="port" name="port" value="80800" inputmode="numeric" aria-invalid="true" aria-describedby="port-err">
+  <p class="m3l-field__error caption" id="port-err"><svg class="m3l-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M7 2h6l5 5v6l-5 5H7l-5-5V7Z"/><path d="m7.5 7.5 5 5m0-5-5 5"/></svg><span><span class="m3l-visually-hidden">Error: </span>Use a port from 1024 to 65535.</span></p>
+</div>
+<div class="m3l-field">
+  <label class="m3l-field__label label" for="org">GitHub org</label>
+  <input class="m3l-input body" id="org" name="org" value="monte3l" disabled>
+</div>
+</div>
+</body>
+</html>
