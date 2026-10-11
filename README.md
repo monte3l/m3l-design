@@ -77,8 +77,8 @@ For maintainers. Steps 1 to 3 change nothing public, so run them first.
 1. Update `CHANGELOG.md` and the version in `design/README.md` and this file.
 2. Run `node bin/build-design-tokens.mjs --check`, `node --test` and `reuse lint`.
 3. Rehearse with `bin/sync-design.sh --from <commit> v1.2.3 <consumer>` in a scratch copy of each consumer.
-4. Build the assets with `bin/package-release.sh <commit> dist`.
-5. Create the release as a **draft**, attach the three assets, and check them: `gh release create vX.Y.Z --draft --target <commit> dist/*`.
+4. Build the assets with `bin/package-release.sh vX.Y.Z <commit> dist`. The tarball is named after the tag, which is the name `sync-design.sh` asks for.
+5. Create the release as a **draft** and attach the three assets: `gh release create vX.Y.Z --draft --target <commit> --title vX.Y.Z --notes-file <notes> dist/*`. Download them again and compare them with the rehearsal.
 6. Publish it: `gh release edit vX.Y.Z --draft=false`.
 7. Check the attestation: `gh release verify vX.Y.Z`.
 
