@@ -55,5 +55,8 @@ jobs:
         # Pinned by tag: Dependabot does not track this value, bump it by hand.
         run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -color .github/workflows/*.yml
 
+      # Run through pipx (preinstalled on the runner) rather than fsfe/reuse-action:
+      # the org only allows a short list of third-party actions. Dependabot does
+      # not track this version, so bump it by hand.
       - name: REUSE compliance
-        uses: fsfe/reuse-action@676e2d560c9a403aa252096d99fcab3e1132b0f5 # v6.0.0
+        run: pipx run --spec 'reuse[charset-normalizer]==6.2.0' reuse lint
