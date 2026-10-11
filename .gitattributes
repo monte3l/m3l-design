@@ -1,0 +1,2 @@
+# Byte-for-byte: SHA256SUMS covers source/ and tokens.css, so git must never normalise line endings.
+* -text
