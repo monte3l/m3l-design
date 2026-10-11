@@ -1,0 +1,38 @@
+# REUSE Software (https://reuse.software) annotations for every file that has no
+# comment syntax of its own to carry an inline SPDX header. Files that do carry
+# one (the scripts, the tests, the resolver and tokens.css) keep it: REUSE's
+# default precedence is "closest", so an in-file header wins over this file.
+#
+# Order matters: when several tables match a path, the last one wins. The
+# general MIT table comes first and the font tables after it.
+version = 1
+SPDX-PackageName = "m3l-design"
+SPDX-PackageSupplier = "Enrico Lionello (enri3l) and Giulia Montevecchi (giulmonte), monte3l"
+SPDX-PackageDownloadLocation = "https://github.com/monte3l/m3l-design"
+
+[[annotations]]
+path = ["**"]
+SPDX-FileCopyrightText = "2026 Enrico Lionello (enri3l), Giulia Montevecchi (giulmonte), monte3l"
+SPDX-License-Identifier = "MIT"
+
+# The two Atkinson Hyperlegible fonts are not ours. They are Modified Versions
+# (a Latin subset in WOFF2) under their own license, SIL OFL-1.1, and stay under
+# it. See source/fonts/FONTLOG.md.
+[[annotations]]
+path = ["source/fonts/*.woff2"]
+SPDX-FileCopyrightText = [
+  "Copyright 2020-2024 The Atkinson Hyperlegible Next Project Authors",
+  "Copyright 2020-2024 The Atkinson Hyperlegible Mono Project Authors",
+]
+SPDX-License-Identifier = "OFL-1.1"
+
+# The two OFL texts as upstream ships them. They stay next to the fonts, because
+# each one carries its font's own copyright line, which the generic
+# LICENSES/OFL-1.1.txt does not.
+[[annotations]]
+path = ["source/licenses/**"]
+SPDX-FileCopyrightText = [
+  "Copyright 2020-2024 The Atkinson Hyperlegible Next Project Authors",
+  "Copyright 2020-2024 The Atkinson Hyperlegible Mono Project Authors",
+]
+SPDX-License-Identifier = "OFL-1.1"
