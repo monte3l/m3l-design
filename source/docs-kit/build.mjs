@@ -198,7 +198,9 @@ function headingsOfHtml(html) {
   return [...html.matchAll(/<h([1-3])[^>]*\sid="([^"]+)"[^>]*>(.*?)<\/h\1>/g)].map((m) => ({
     level: Number(m[1]),
     slug: m[2],
-    text: m[3].replace(/<[^>]+>/g, ""),
+    // Text only: drop tags, then any stray angle bracket, so no `<script` can survive
+    // a nested or malformed tag. The title is escaped again where it is used.
+    text: m[3].replace(/<[^>]*>/g, "").replace(/[<>]/g, ""),
   }));
 }
 
