@@ -195,6 +195,7 @@ For maintainers. Steps 1 to 3 change nothing public, so run them first.
 ### Project docs
 
 - [`CHANGELOG.md`](CHANGELOG.md): what changed in each release.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md): how to report a bug and contribute.
 - [`SECURITY.md`](SECURITY.md): reporting a vulnerability.
 - [`CLAUDE.md`](CLAUDE.md): the full maintainer reference for agents: commands,
   how the pieces fit, conventions.
