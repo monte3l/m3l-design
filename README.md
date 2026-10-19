@@ -98,7 +98,8 @@ node --test                               # resolver parity with tokens.json
 
 Change `source/dtcg/` and regenerate. Never edit `tokens.css` or `SHA256SUMS` by
 hand. Commits are Conventional Commits, signed, with a `Signed-off-by` trailer
-(`git commit -s`), as in every monte3l repository.
+(`git commit -s`), as in every monte3l repository. To report a vulnerability,
+follow [`SECURITY.md`](SECURITY.md).
 
 ## License
 
