@@ -11,6 +11,7 @@ covers the colour, type, shape and motion tokens, seven plain HTML and CSS
 components, and the contrast tables that show every pairing passes WCAG 2.2 AA.
 
 - **Version:** `v1.0.0` (the system's "v1, signed off 2026-09-26")
+- **Docs:** [design.monte3l.com](https://design.monte3l.com), built from this repository by its own docs kit
 - **License:** MIT, with the two bundled fonts under SIL OFL-1.1. See [License](#license).
 - **Credits:** Enrico Lionello ([`enri3l`](https://github.com/enri3l)) and Giulia Montevecchi ([`giulmonte`](https://github.com/giulmonte)), for monte3l. See [AUTHORS.md](AUTHORS.md).
 
@@ -42,7 +43,7 @@ Pick the tier that matches your repository:
 | Your repository has | Tier | What to do |
 | --- | --- | --- |
 | Markdown only | Content | Follow the markdown rules in the [org blueprint](https://github.com/monte3l/.github/blob/main/blueprint/README.md#design-system) and add a `design/README.md` with ``- **Version adopted:** `vX.Y.Z` `` |
-| Any CSS, HTML, docs site or coloured terminal output | Vendored | Add the marker, then run the sync script below |
+| Any CSS, HTML, docs site or coloured terminal output | Vendored | Add the marker, then run the sync script below. A docs site also gets the [docs kit](source/docs-kit/README.md) that builds and gates it |
 
 For the vendored tier, first create `design/README.md` in your repository with
 the line ``- **Version copied:** `vX.Y.Z` ``. The script never creates this
@@ -119,10 +120,12 @@ adopting a release is a plain copy.
 | `source/brand-book.md` | The design brief and what v1 shipped |
 | `source/fonts/`, `source/licenses/` | Atkinson Hyperlegible Next and Mono, with their OFL texts and `FONTLOG.md` |
 | `source/lib/design-tokens.mjs` | The one DTCG resolver. Zero dependencies |
+| `source/docs-kit/` | The docs kit: the builder, the renderer and the checks that keep a project's docs site in step with its repository. See [its README](source/docs-kit/README.md) |
 | `source/LICENSE`, `source/AUTHORS.md` | The notice that has to travel with every copy |
 | `tokens.css` | Generated from `source/dtcg/` |
 | `SHA256SUMS` | The hash of every file in `source/` and of `tokens.css` |
 | `bin/` | `sync-design.sh`, `package-release.sh` and `build-design-tokens.mjs` |
+| `docs.config.mjs`, `scripts/` | This repository's own docs site: its config, the token and gallery page generators, and the doc-versus-payload parity check |
 | `artifact/` | The preview pages for the claude.ai design-system artifact. Not part of a release's payload |
 
 ## Requirements
@@ -130,6 +133,7 @@ adopting a release is a plain copy.
 | Who | Needs |
 | --- | --- |
 | Consumers running a sync | bash, `git`, [`gh`](https://cli.github.com/) 2.81 or later (for release verification), and `sha256sum` or `shasum` |
+| Consumers building a docs site | Node 24 and `git`, for the docs kit |
 | Maintainers | Node 24 (`.node-version` is the authority), [`reuse`](https://reuse.software/), `shellcheck` and `jq`. There is no `package.json` and nothing to install |
 
 ## Versioning policy
@@ -149,9 +153,12 @@ The public API is:
 3. **File paths** under `source/`.
 4. **The exports of `source/lib/design-tokens.mjs`.** `m3l-groundwork` imports
    the resolver.
+5. **The docs kit**: the keys of `docs.config.mjs`, the commands and flags of
+   `build.mjs` and `check-live.mjs`, and the exit codes. Removing or renaming one
+   is a major release.
 
-**Not covered:** `artifact/`, the internals of `bin/`, and the prose of the
-docs.
+**Not covered:** `artifact/`, the internals of `bin/`, the internals of
+`source/docs-kit/lib/`, and the prose of the docs.
 
 Every release is **immutable**: its tag and assets cannot change after
 publishing, and each one carries a GitHub attestation. A published tag name can
@@ -163,7 +170,9 @@ never be reused, so a bad release is fixed with the next version.
 | --- | --- |
 | `node bin/build-design-tokens.mjs` | Regenerate `tokens.css` and `SHA256SUMS` |
 | `node bin/build-design-tokens.mjs --check` | Fail if either is stale. CI runs this |
-| `node --test` | Resolver parity with `tokens.json`, and the credit-file checks |
+| `node --test` | Resolver parity with `tokens.json`, the credit-file checks and the docs kit tests |
+| `node source/docs-kit/build.mjs --check` | Build the docs site and fail on a broken link, an unlisted page, a hand-edited payload file or doc-versus-payload drift. CI runs this |
+| `node source/docs-kit/build.mjs --out _site` | Write the docs site |
 | `bash -n bin/*.sh && shellcheck bin/*.sh` | Lint the shell scripts |
 | `reuse lint` | The REUSE licensing check |
 
@@ -201,6 +210,7 @@ For maintainers. Steps 1 to 3 change nothing public, so run them first.
   how the pieces fit, conventions.
 - [`AUTHORS.md`](AUTHORS.md): who made it.
 - [`design/README.md`](design/README.md): this repository's own adoption marker.
+- [`source/docs-kit/README.md`](source/docs-kit/README.md): the docs kit contract.
 
 ## License
 
