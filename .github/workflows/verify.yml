@@ -2,7 +2,8 @@ name: Verify
 
 # Checks what this repository ships: the generated files are current, the
 # resolver still reproduces tokens.json, SHA256SUMS matches the payload, every
-# script and workflow lints, and every file has its licensing declared (REUSE).
+# script and workflow lints (actionlint, zizmor), and every file has its
+# licensing declared (REUSE).
 # The job name `verify` is what the org `main` ruleset requires.
 on:
   push:
@@ -54,6 +55,16 @@ jobs:
       - name: actionlint
         # Pinned by tag: Dependabot does not track this value, bump it by hand.
         run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -color .github/workflows/*.yml
+      - name: zizmor
+        uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
+        with:
+          inputs: .github/workflows
+          # Pinned: `latest` lets a new zizmor release change what fails.
+          # Dependabot does not track this value, so bump it by hand.
+          version: "1.31.1"
+          # Offline audits only, so the step needs no token.
+          online-audits: false
+          advanced-security: false
 
       # Run through pipx (preinstalled on the runner) rather than fsfe/reuse-action:
       # the org only allows a short list of third-party actions. Dependabot does
