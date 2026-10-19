@@ -164,6 +164,18 @@ describe("build.mjs --check end to end", () => {
     assertFails(check(root), "a parity module must default-export");
   });
 
+  it("takes a generated page's title from text only, whatever tags the heading nests", async () => {
+    const root = await fixture();
+    await put(root, "gen.mjs", `export default async () => [{ out: "gen.html", group: "Start", label: "Gen", html: '<h1 id="t"><<b>script>x</b>y</h1>' }];\n`);
+    await put(root, "docs.config.mjs", CONFIG.replace("manifest:", `generators: ["gen.mjs"],\n  manifest:`));
+    const out = spawnSync(process.execPath, [BUILD, "--out", "_site"], { cwd: root, encoding: "utf8" });
+    assert.equal(out.status, 0, out.stderr);
+    const page = await readFile(path.join(root, "_site/gen.html"), "utf8");
+    const title = /<title>([^<]*)<\/title>/.exec(page);
+    assert.ok(title, "the title element holds no markup");
+    assert.ok(title[1].startsWith("scriptxy"), title[1]);
+  });
+
   it("lists an italic span once", async () => {
     const root = await fixture();
     await put(root, "README.md", "# Home\n\nsome *italic* here and *italic* again\n");
