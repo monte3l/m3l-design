@@ -6,6 +6,8 @@ All notable changes to m3l-design. The format follows
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-20
+
 ### Added
 
 - **Minor:** `source/docs-kit/`, the docs kit, in the payload. It builds a
@@ -59,5 +61,6 @@ First release from this repository. It is the system's "v1, signed off
 
 - The artifact's own runtime files. The preview pages are kept in `artifact/`.
 
-[Unreleased]: https://github.com/monte3l/m3l-design/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/monte3l/m3l-design/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/monte3l/m3l-design/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/monte3l/m3l-design/releases/tag/v1.0.0
