@@ -6,6 +6,28 @@ All notable changes to m3l-design. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Minor:** `source/docs-kit/`, the docs kit, in the payload. It builds a
+  project's docs site from its Markdown and gates it: links and anchors, page
+  coverage, `SHA256SUMS`, the vendored-tier marker, local CSS literals, alert
+  runs, the manifest homepage and project parity modules. It also checks the
+  deployed site byte for byte against the build. Contract:
+  `source/docs-kit/README.md`.
+- This repository's own docs site, design.monte3l.com: `docs.config.mjs`, the
+  token reference and component gallery generators in `scripts/site/`, the
+  doc-versus-payload parity check `scripts/doc-parity.mjs`, and the `docs` and
+  `docs-live` workflows with their Cloudflare deploy tooling.
+
+### Changed
+
+- **Patch:** `source/brand-book.md` no longer uses italics, which its own rules
+  forbid, and names `color-surface-default` and `color-text-primary` as its
+  semantic-token examples, because `color-surface-primary` and
+  `color-text-on-surface` do not exist.
+- **Patch:** the Button and Input READMEs name `color-border-default` in full.
+- `design/README.md` records the source tier.
+
 ## [1.0.0] - 2026-10-11
 
 First release from this repository. It is the system's "v1, signed off

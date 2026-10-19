@@ -14,7 +14,9 @@ Node 24 (`.node-version`), no `package.json`, nothing to install.
 | --- | --- |
 | `node bin/build-design-tokens.mjs` | Regenerate `tokens.css` and `SHA256SUMS` |
 | `node bin/build-design-tokens.mjs --check` | Fail if either is stale. CI runs this |
-| `node --test` | Resolver parity tests and credit-file checks |
+| `node --test` | Resolver parity tests, credit-file checks and the docs kit tests |
+| `node source/docs-kit/build.mjs --check` | Build this repository's docs site and gate it: links, page coverage, `SHA256SUMS`, local CSS, parity with the payload. CI runs this |
+| `node source/docs-kit/build.mjs --out _site` | Write the docs site |
 | `node --test --test-name-pattern="shadow"` | Run one test |
 | `sha256sum -c --quiet SHA256SUMS` | Check the payload hashes (`shasum -a 256 -c` on macOS) |
 | `bash -n bin/*.sh && shellcheck bin/*.sh` | Lint the shell scripts |
@@ -31,6 +33,8 @@ CI (`.github/workflows/verify.yml`) also runs `jq empty` on every JSON file unde
 - **The type styles are a fixed set.** `STYLE_NAMES` in the resolver lists them, and `deriveTypeTreatment` throws if the DTCG source lacks one or its `org.monte3l.m3l-design` extension.
 - **Credit files are duplicated on purpose.** `source/LICENSE` and `source/AUTHORS.md` must equal the root `LICENSE` and `AUTHORS.md`, and a test enforces it. Edit both copies together.
 - **Line endings are never normalised** (`.gitattributes`: `* -text`), because `SHA256SUMS` covers raw bytes.
+- **The docs kit is part of the payload and is public API.** `source/docs-kit/` is vendored into every consumer by `sync-design.sh`, so removing or renaming a `docs.config.mjs` key, a command or a flag is major, and adding one is minor. Its contract is `source/docs-kit/README.md`. Keep it dependency-free, and keep project-specific values in the consumer's config, never in the kit.
+- **This repository's own site** (design.monte3l.com) builds from the root through `docs.config.mjs` (`designDir: "."`). Two generators in `scripts/site/` render the token reference from `tokens.css` and the component gallery from `artifact/components/*/preview.html`. A preview that uses `<script>` or an `on*` handler fails the build, because the site's CSP allows neither. `scripts/doc-parity.mjs` fails when a `bundle.css` block lacks a README or preview (or the reverse), when a doc names a token `tokens.css` does not declare, or when the newest CHANGELOG release is not `Version adopted`. A new `.md` file must be added to `pages` or `exclude` in `docs.config.mjs`.
 - **`artifact/`** holds the preview pages for the claude.ai design-system artifact. It is not part of the release payload and is not hashed.
 
 ## Conventions
@@ -39,4 +43,4 @@ CI (`.github/workflows/verify.yml`) also runs `jq empty` on every JSON file unde
 - **Every token change gets a `CHANGELOG.md` line under `[Unreleased]` that names the token and its semver bump**, even a one-value tweak, because consumers read it to decide whether to re-sync. Removing or renaming a token, class or file is major. Adding one, or changing a value that still passes AA, is minor. Report the before and after contrast ratios and any new value that equals a sibling token (for example a text step that lands on `color-text-secondary`).
 - For token work, run `/add-token`: it walks the DTCG source, `tokens.json`, contrast tables, regeneration and the changelog in order. It rarely triggers on its own, so invoke it deliberately.
 - Releases are immutable, and a published tag can never be reused. Follow the README's draft-first release steps and never publish a release without being asked.
-- This repository adopts itself at the content tier (`design/README.md`). Bump its `Version adopted` line in the same commit as a release.
+- This repository adopts itself at the source tier (`design/README.md`: `Version adopted` plus `Tier: source`). The docs kit accepts that tier only here, where `designDir` is `.`. Bump the `Version adopted` line in the same commit as a release.

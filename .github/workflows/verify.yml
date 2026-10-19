@@ -1,7 +1,8 @@
 name: Verify
 
 # Checks what this repository ships: the generated files are current, the
-# resolver still reproduces tokens.json, SHA256SUMS matches the payload, every
+# resolver still reproduces tokens.json, SHA256SUMS matches the payload, the
+# docs site builds and its documentation matches the payload, every
 # script and workflow lints (actionlint, zizmor), and every file has its
 # licensing declared (REUSE).
 # The job name `verify` is what the org `main` ruleset requires.
@@ -38,6 +39,9 @@ jobs:
 
       - name: SHA256SUMS matches the payload
         run: sha256sum -c --quiet SHA256SUMS
+
+      - name: Docs site builds, links resolve and docs match the payload
+        run: node source/docs-kit/build.mjs --check
 
       - name: Resolver parity and credit files
         run: node --test

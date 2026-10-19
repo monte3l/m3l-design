@@ -8,3 +8,17 @@ updates:
       default-days: 7
     labels:
       - dependencies
+
+  # .github/deploy-tools/ pins the exact wrangler version docs.yml installs,
+  # through a committed lockfile. Its job holds a Cloudflare API token, so it
+  # gets a one-day cooldown.
+  - package-ecosystem: npm
+    directory: /.github/deploy-tools
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 1
+    commit-message:
+      prefix: ci
+    labels:
+      - dependencies

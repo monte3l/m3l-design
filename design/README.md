@@ -1,13 +1,14 @@
 # design/ -- m3l-design, adopted
 
 This repository **is** m3l-design, the design system of the `monte3l` GitHub
-organization, so it adopts itself at the content tier: it follows the markdown
-rules and vendors nothing.
+organization, so it adopts itself at the source tier: the repository root is the
+release payload, its docs site (design.monte3l.com) builds straight from it, and
+it follows the markdown rules.
 
 - **Source:** [github.com/monte3l/m3l-design](https://github.com/monte3l/m3l-design)
 - **Version adopted:** `v1.0.0`
 - **Date adopted:** 2026-10-11
-- **Tier:** content
+- **Tier:** source (builds from the repository root payload)
 - **Credits:** Enrico Lionello (`enri3l`) and Giulia Montevecchi (`giulmonte`), for `monte3l`
 
 ## Markdown rules
