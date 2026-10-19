@@ -157,6 +157,21 @@ describe("build.mjs --check end to end", () => {
     assert.ok(result.stderr.includes("parity.mjs: drift two"));
   });
 
+  it("reports a parity module that does not default-export a function", async () => {
+    const root = await fixture();
+    await put(root, "parity.mjs", `export const notDefault = 1;\n`);
+    await put(root, "docs.config.mjs", CONFIG.replace("manifest:", `parity: ["parity.mjs"],\n  manifest:`));
+    assertFails(check(root), "a parity module must default-export");
+  });
+
+  it("lists an italic span once", async () => {
+    const root = await fixture();
+    await put(root, "README.md", "# Home\n\nsome *italic* here and *italic* again\n");
+    const result = check(root);
+    assertFails(result, "*italic*");
+    assert.equal(result.stderr.split("*italic*").length - 1, 1);
+  });
+
   it("reports every problem in one run", async () => {
     const root = await fixture();
     await put(root, "README.md", "# Fixture\n\n*x* [gone](missing.md)\n");

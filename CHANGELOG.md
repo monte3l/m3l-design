@@ -14,6 +14,7 @@ All notable changes to m3l-design. The format follows
   runs, the manifest homepage and project parity modules. It also checks the
   deployed site byte for byte against the build. Contract:
   `source/docs-kit/README.md`.
+  A page's leading YAML frontmatter (a skill or agent file) is not rendered.
 - This repository's own docs site, design.monte3l.com: `docs.config.mjs`, the
   token reference and component gallery generators in `scripts/site/`, the
   doc-versus-payload parity check `scripts/doc-parity.mjs`, and the `docs` and
