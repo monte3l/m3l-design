@@ -10,7 +10,7 @@ organization: warm, legible foundations for everything monte3l builds. It
 covers the colour, type, shape and motion tokens, seven plain HTML and CSS
 components, and the contrast tables that show every pairing passes WCAG 2.2 AA.
 
-- **Version:** `v1.0.0` (the system's "v1, signed off 2026-09-26")
+- **Version:** `v1.1.0` (the system's "v1, signed off 2026-09-26")
 - **Docs:** [design.monte3l.com](https://design.monte3l.com), built from this repository by its own docs kit
 - **License:** MIT, with the two bundled fonts under SIL OFL-1.1. See [License](#license).
 - **Credits:** Enrico Lionello ([`enri3l`](https://github.com/enri3l)) and Giulia Montevecchi ([`giulmonte`](https://github.com/giulmonte)), for monte3l. See [AUTHORS.md](AUTHORS.md).
@@ -51,7 +51,7 @@ file, and exits with code `2` if it is missing. Then, from a clone of this
 repository:
 
 ```sh
-bin/sync-design.sh v1.0.0 /path/to/your-repo
+bin/sync-design.sh v1.1.0 /path/to/your-repo
 ```
 
 The script downloads the release, verifies it with `gh release verify` and
