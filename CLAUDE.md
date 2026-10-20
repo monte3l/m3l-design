@@ -44,3 +44,23 @@ CI (`.github/workflows/verify.yml`) also runs `jq empty` on every JSON file unde
 - For token work, run `/add-token`: it walks the DTCG source, `tokens.json`, contrast tables, regeneration and the changelog in order. It rarely triggers on its own, so invoke it deliberately.
 - Releases are immutable, and a published tag can never be reused. Follow the README's draft-first release steps and never publish a release without being asked.
 - This repository adopts itself at the source tier (`design/README.md`: `Version adopted` plus `Tier: source`). The docs kit accepts that tier only here, where `designDir` is `.`. Bump the `Version adopted` line in the same commit as a release.
+
+## Claude Code harness
+
+Everything under `.claude/` is wired in `.claude/settings.json`, and every hook registration there carries a `timeout`. `.claude/skills/customize/` and `.groundwork/` are m3l-groundwork's own tooling (the adoption survey, the staged baseline and `.groundwork/customization-report.md`), not part of the payload.
+
+| Hook | Event | What it does |
+| --- | --- | --- |
+| `.claude/hooks/block-generated.sh` | PreToolUse, Edit or Write | Refuses hand edits to `tokens.css` and `SHA256SUMS` and points at `bin/build-design-tokens.mjs` |
+| `.claude/hooks/guard-secret-writes.mjs` | PreToolUse, Edit or Write | Blocks writing `.env*` files or real secret values. Fails closed (`onFailure: block`) |
+| `.claude/hooks/guard-no-commonjs.mjs` | PreToolUse, Edit or Write | Blocks `require`, `module.exports` and `__dirname` in JavaScript |
+| `.claude/hooks/release-guard.sh` | PreToolUse, Bash | Asks before `gh release edit --draft=false` or a `gh release create` that is not a draft |
+| `.claude/hooks/guard-double-background.mjs` | PreToolUse, Bash | Blocks `run_in_background` combined with `nohup`, `&` or `disown` |
+| `.claude/hooks/verify-after-edit.sh` | PostToolUse, Edit or Write | Rebuilds tokens and runs `node --test` after a `source/` edit, and `bash -n` plus shellcheck after a `bin/*.sh` edit. Exits 2 on failure, the only code whose output reaches Claude |
+| `.claude/hooks/write-compact-handoff.mjs` and `.claude/hooks/reinject-compact-handoff.mjs` | PreCompact, SessionStart | Carry a work summary across a compaction through `tmp/` (gitignored) |
+| `.claude/hooks/statusline.mjs`, `.claude/hooks/subagent-statusline.mjs` and `.claude/hooks/statusline-layout.mjs` | `statusLine`, `subagentStatusLine` | Render the status lines. `statusline-layout.mjs` is imported by the other two |
+
+- **Agents** (`.claude/agents/`): `token-change-reviewer` (after any `source/dtcg/` edit), `brand-markdown-reviewer` (after editing markdown), `code-reviewer` (scripts, resolver, docs kit), `silent-failure-hunter` (swallowed errors) and `Explore` (read-only search). None holds Edit or Write, so none edits files.
+- **Skills** (`.claude/skills/`): `add-token` and `release` are repository-specific. `writing-commits`, `creating-prs`, `finishing-work` and `triaging-ci` are retargeted from the groundwork baseline to this repository's checks. `reviewing-dependabot-prs`, `triaging-scan-alerts` and `watching-pr-checks` come from the groundwork `github` pack, and `harness-guidance` refreshes this setup against Anthropic's guidance. Its tracker is `docs/research/harness-refresh.md`.
+- **Commits**: Conventional Commits, `git commit -s` for the DCO sign-off, and a GPG or SSH signature. Use `writing-commits` rather than hand-writing the trailers.
+- **Adding a hook**: install the script before registering it. A registration with `onFailure: block` whose file does not exist blocks every matching tool call, including the one that would create the file. A new `.mjs` hook carries an SPDX header and the `realpathSync(process.argv[1])` self-invocation guard its siblings use.
