@@ -45,3 +45,6 @@ jobs:
           GITLEAKS_VERSION: "8.30.1"
           # Avoids needing pull-requests: write for a PR comment.
           GITLEAKS_ENABLE_COMMENTS: "false"
+          # The repository's own config (blueprint/files/gitleaks.toml): the
+          # default rules plus any allowlist for fake keys in tests.
+          GITLEAKS_CONFIG: .gitleaks.toml
