@@ -20,9 +20,9 @@ Node 24 (`.node-version`), no `package.json`, nothing to install.
 | `node --test --test-name-pattern="shadow"` | Run one test |
 | `sha256sum -c --quiet SHA256SUMS` | Check the payload hashes (`shasum -a 256 -c` on macOS) |
 | `bash -n bin/*.sh && shellcheck bin/*.sh` | Lint the shell scripts |
-| `reuse lint` | REUSE licensing check (CI pins `reuse==6.2.0` through pipx) |
+| `reuse lint` | REUSE licensing check (CI runs it from `reuse.yml` with `fsfe/reuse-action`) |
 
-CI (`.github/workflows/verify.yml`) also runs `jq empty` on every JSON file under `source/` and `artifact/`, and actionlint.
+CI (`.github/workflows/verify.yml`) also runs `jq empty` on every JSON file under `source/` and `artifact/`, and a `dco` lane for sign-offs; actionlint and zizmor run from `workflow-lint.yml` when a workflow changes.
 
 ## How the pieces fit
 
