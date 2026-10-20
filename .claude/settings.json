@@ -1,20 +1,104 @@
 {
-  "enabledPlugins": {
-    "context7@anthropic-plugin-directory": true,
-    "skill-creator@anthropic-plugin-directory": true,
-    "github@anthropic-plugin-directory": true,
-    "claude-md-management@anthropic-plugin-directory": true,
-    "security-guidance@anthropic-plugin-directory": true,
-    "typescript-lsp@claude-plugins-official": true,
-    "claude-code-setup@anthropic-plugin-directory": true
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)"
+    ]
   },
   "hooks": {
     "PreToolUse": [
-      { "matcher": "Edit|Write", "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-generated.sh" }] },
-      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/release-guard.sh" }] }
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-generated.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-no-commonjs.mjs\"",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-secret-writes.mjs\"",
+            "timeout": 30,
+            "onFailure": "block"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/release-guard.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-double-background.mjs\"",
+            "timeout": 30
+          }
+        ]
+      }
     ],
     "PostToolUse": [
-      { "matcher": "Edit|Write", "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/verify-after-edit.sh" }] }
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/verify-after-edit.sh",
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/write-compact-handoff.mjs\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact|resume|startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/reinject-compact-handoff.mjs\"",
+            "timeout": 30
+          }
+        ]
+      }
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/statusline.mjs\"",
+    "padding": 1,
+    "refreshInterval": 30
+  },
+  "subagentStatusLine": {
+    "type": "command",
+    "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/subagent-statusline.mjs\""
+  },
+  "enabledPlugins": {
+    "context7@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true,
+    "github@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "claude-code-setup@claude-plugins-official": true,
+    "claude-security@claude-plugins-official": true
   }
 }

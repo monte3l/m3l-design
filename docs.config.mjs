@@ -36,6 +36,8 @@ export default {
   exclude: [
     { glob: ".claude/**", reason: "Claude Code agents and skills for working in this repository" },
     { glob: "CLAUDE.md", reason: "instructions for coding agents, not reader-facing" },
+    { glob: "docs/research/**", reason: "harness-guidance trackers for the Claude Code setup, not reader-facing" },
+    { glob: ".groundwork/**", reason: "m3l-groundwork adoption and customization reports, not reader-facing" },
     { glob: "AUTHORS.md", reason: "credits file; source/AUTHORS.md is its payload copy" },
     { glob: "source/AUTHORS.md", reason: "credits file that travels with the payload" },
     { glob: "source/fonts/FONTLOG.md", reason: "font provenance, linked from the brand book on GitHub" },
