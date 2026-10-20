@@ -163,7 +163,7 @@ None.
 - Installed 3 packs: `github` (3 skills), `statusline` (3 scripts, 2 settings keys) and `harness-extras` (compaction handoff, 2 hooks).
 - Kept as they were: `.github/dependabot.yml`, `.github/workflows/dependency-review.yml`, `README.md`, every workflow. `CLAUDE.md` kept its content and gained a "Claude Code harness" section.
 - Merged: `.claude/settings.json` and `.gitignore` (added `.claude/worktrees/`, `.env`, `.env.local`, `.env.*.local` and `tmp/`). `docs.config.mjs` gained an `exclude` for `docs/research/**`.
-- Fixed existing hooks: `verify-after-edit.sh` now exits 2 on a failure and runs in the edited file's repository, `release-guard.sh` also flags `gh release create --draft=false`, and all three registrations got a `timeout`.
+- Fixed existing hooks: `verify-after-edit.sh` now exits 2 on a failure and runs in this project or its linked worktree that holds the edited file (never another repository), `release-guard.sh` also flags `gh release create --draft=false`, and all three registrations got a `timeout`.
 - Not installed: the TypeScript toolchain scaffolding, `ci.yml`, `security-audit.yml`, the guards that import `bin/lib/*`, the `src/` and `tests/` rules, `test-author`, `code-implementer`, `typescript-guidance`, `starting-work`, `guard-readonly-bash` (it imports `bin/lib/agent-roster.mjs`), and the `supply-chain`, `quality`, `worktrees` and `claude-github` packs. `licensing` and `publishing` are fresh-only.
 
 ## Could not be determined

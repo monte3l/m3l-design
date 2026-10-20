@@ -107,12 +107,40 @@ export function formatTokenFraction(tokenCount, contextWindowSize) {
 }
 
 /**
+ * Strips C0 and C1 control characters from payload-supplied text. Agent names
+ * and effort labels come from agent files and plugins; an embedded escape
+ * sequence must not be able to repaint the terminal or forge a segment. This
+ * mirrors `sanitizeDisplayText` in `statusline.mjs`, inlined so each entry
+ * point stays independent.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function sanitizeDisplayText(text) {
+  const controlChars = new RegExp(
+    "[" +
+      String.fromCharCode(0) +
+      "-" +
+      String.fromCharCode(31) +
+      String.fromCharCode(127) +
+      "-" +
+      String.fromCharCode(159) +
+      "]",
+    "g",
+  );
+  return text.replace(controlChars, "");
+}
+
+/**
  * @param {unknown} effort a task's `effort` field — one of the effort level
  *   strings, or a numeric token budget.
  * @returns {string | null}
  */
 export function formatEffort(effort) {
-  if (typeof effort === "string" && effort.length > 0) return effort;
+  if (typeof effort === "string") {
+    const clean = sanitizeDisplayText(effort);
+    return clean.length > 0 ? clean : null;
+  }
   if (typeof effort === "number" && Number.isFinite(effort))
     return formatTokenCount(effort);
   return null;
@@ -144,9 +172,10 @@ export function formatSubagentRow(task, env) {
       : typeof agentType === "string" && agentType.length > 0
         ? agentType
         : null;
-  if (label === null) return null;
+  const cleanLabel = label === null ? "" : sanitizeDisplayText(label);
+  if (cleanLabel.length === 0) return null;
 
-  const segments = [label];
+  const segments = [cleanLabel];
 
   const effortText = formatEffort(effort);
   if (effortText !== null) segments.push(`${MAGENTA}${effortText}${RESET}`);

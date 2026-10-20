@@ -5,8 +5,12 @@
 # A failure exits 2, the only PostToolUse code whose stderr reaches Claude.
 f=$(jq -r '.tool_input.file_path // empty')
 # CLAUDE_PROJECT_DIR stays the original checkout inside a linked worktree, so
-# prefer the repository that holds the edited file.
-root=$(git -C "$(dirname "$f")" rev-parse --show-toplevel 2>/dev/null) || root=${CLAUDE_PROJECT_DIR:-.}
+# run in the repository that holds the edited file. Trust that root only when
+# it is this project or one of its linked worktrees: anything else is another
+# repository, and its build script must not be run from here.
+project=${CLAUDE_PROJECT_DIR:-.}
+root=$(git -C "$(dirname "$f")" rev-parse --show-toplevel 2>/dev/null) || exit 0
+git -C "$project" worktree list --porcelain 2>/dev/null | grep -Fxq "worktree $root" || exit 0
 cd "$root" || exit 0
 fail=0
 case "$f" in

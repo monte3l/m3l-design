@@ -31,7 +31,7 @@ Only `harness-guidance` ran. `typescript-guidance` was skipped: the repository h
 
 - A `permissions.deny` block for `Read(./.env)`, `Read(./.env.*)` and `Read(./secrets/**)`, plus `$schema`. The baseline had both and your `settings.json` had neither.
 - The five `@anthropic-plugin-directory` plugin keys moved to `@claude-plugins-official`, and `claude-code-setup` enabled under that id. You confirmed this.
-- `verify-after-edit.sh` runs in the repository that holds the edited file, because `CLAUDE_PROJECT_DIR` stays at the original checkout inside a linked worktree. You confirmed this.
+- `verify-after-edit.sh` runs in this project or the linked worktree that holds the edited file, because `CLAUDE_PROJECT_DIR` stays at the original checkout inside a linked worktree. After a security review of the pushed PR it skips any other repository, so a file edited in an unrelated checkout cannot make it run that checkout's build script. You confirmed the worktree behaviour.
 - `Explore` no longer claims a project agent skips `CLAUDE.md`. The docs describe that only for the built-in.
 
 **Where the findings disagreed with Rounds 0 and 1:** the baseline's `Explore` prose, the baseline `settings.json` shape (no `permissions`, no `$schema`) and the assumption that `anthropic-plugin-directory` is a marketplace. No finding overrode an interview answer.

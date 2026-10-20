@@ -18,7 +18,7 @@ Applied in the 2026-10-20 sweep: a `permissions.deny` block for secret reads and
 the `$schema` key in `.claude/settings.json`; the five legacy
 `@anthropic-plugin-directory` plugin keys moved to `@claude-plugins-official`,
 and `claude-code-setup` enabled under that id; `verify-after-edit.sh` now runs in
-the repository that holds the edited file; the `Explore` prompt no longer claims
+this project or the linked worktree that holds the edited file, and skips any other repository; the `Explore` prompt no longer claims
 a project agent skips `CLAUDE.md`.
 
 Open, none of them blocking:
