@@ -1,0 +1,34 @@
+# Read by .github/workflows/labeler.yml (actions/labeler). The four labels
+# area:ci, area:docs, area:design and area:harness come from the org blueprint
+# (blueprint/files/labeler.yml in monte3l/.github), shared by every org
+# repository, so keep their globs as they are. The area:source, area:tokens and
+# area:release labels below are specific to this repository. All seven exist on
+# GitHub already with their colour and description.
+
+"area:ci":
+  - changed-files:
+      - any-glob-to-any-file: [".github/**", "lefthook.yml"]
+
+"area:docs":
+  - changed-files:
+      - any-glob-to-any-file: ["docs/**", "*.md", "docs.config.mjs"]
+
+"area:design":
+  - changed-files:
+      - any-glob-to-any-file: ["design/**"]
+
+"area:harness":
+  - changed-files:
+      - any-glob-to-any-file: [".claude/**"]
+
+"area:source":
+  - changed-files:
+      - any-glob-to-any-file: ["source/**"]
+
+"area:tokens":
+  - changed-files:
+      - any-glob-to-any-file: ["tokens.css", "artifact/**", "bin/build-design-tokens.mjs"]
+
+"area:release":
+  - changed-files:
+      - any-glob-to-any-file: ["SHA256SUMS", "bin/package-release.sh", "bin/sync-design.sh", "CHANGELOG.md"]
