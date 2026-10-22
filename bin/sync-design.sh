@@ -117,6 +117,14 @@ if ((vendored)); then
   if [[ -f "$consumer/REUSE.toml" ]] && ! grep -q 'giulmonte' "$consumer/REUSE.toml"; then
     printf 'warning: %s/REUSE.toml does not credit the m3l-design authors (enri3l, giulmonte) for design/source/**\n' "$consumer" >&2
   fi
+
+  # The brand files are not MIT. A consumer that annotates all of design/source/**
+  # as MIT would relabel them, so ask for a narrower annotation and the licence text.
+  if [[ -d "$tmp/payload/source/brand" && -f "$consumer/REUSE.toml" ]]; then
+    if ! grep -q 'LicenseRef-MONTE3L-Brand' "$consumer/REUSE.toml" || [[ ! -f "$consumer/LICENSES/LicenseRef-MONTE3L-Brand.txt" ]]; then
+      printf 'warning: %s does not annotate design/source/brand/ as LicenseRef-MONTE3L-Brand or lacks LICENSES/LicenseRef-MONTE3L-Brand.txt; see design/source/brand/LICENSE.md\n' "$consumer" >&2
+    fi
+  fi
 fi
 
 today="$(date +%F)"
