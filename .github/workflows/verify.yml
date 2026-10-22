@@ -8,7 +8,8 @@ name: Verify
 # Lanes are separate jobs, never a matrix, so a failure names its concern:
 # `checks` (what this repository ships: the generated tokens, SHA256SUMS, the
 # docs site and its parity, the resolver tests, the scripts and the JSON
-# files) and `dco`. Workflow linting and the REUSE check run from their own
+# files), `payload-commits` (a payload change needs a commit the release
+# workflow would release) and `dco`. Workflow linting and the REUSE check run from their own
 # workflows, copied from the org's `workflow-templates/`.
 on:
   push:
@@ -129,12 +130,39 @@ jobs:
           echo "checked $checked commit(s), $bad without a valid sign-off"
           [ "$bad" -eq 0 ]
 
+  # The release workflow writes the version from the commit types on main, and
+  # commit lint only checks that a message parses. A changed colour committed
+  # as `chore` would merge and never ship. This fails a pull request that
+  # changes the payload without a feat or fix commit, or that deletes or
+  # renames a payload file without a breaking one. The rules and their limits
+  # are in bin/check-payload-commits.mjs.
+  payload-commits:
+    name: Payload commit types
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .node-version
+
+      - name: Check the commit types against the files changed
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node bin/check-payload-commits.mjs
+
   # The single required check: one status to protect the branch with, whose
   # `needs` list is the only place lanes are enumerated.
   verify:
     name: verify
     runs-on: ubuntu-latest
-    needs: [checks, dco]
+    needs: [checks, payload-commits, dco]
     if: always()
     timeout-minutes: 5
     steps:

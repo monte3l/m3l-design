@@ -74,7 +74,9 @@ you did not read is worse than silence, because they will act on it.
   paths under `source/`, the exports of `source/lib/design-tokens.mjs`, and
   the docs kit's `docs.config.mjs` keys, commands, flags and exit codes:
   removing or renaming one is major, adding one is minor. Check that the
-  `CHANGELOG.md` `[Unreleased]` line and the Conventional Commit type match.
+  Conventional Commit type is the bump: `!` for a removal or rename, `feat` for
+  an addition, `fix` for a payload docs or generator change. The release
+  workflow writes the changelog from it.
 - **The docs kit is vendored into every consumer.** Project-specific values
   belong in the consumer's config, never in the kit.
 - A new self-invocation guard (`bin/**` or `.claude/hooks/**`) must compare

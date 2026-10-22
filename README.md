@@ -10,7 +10,7 @@ organization: warm, legible foundations for everything monte3l builds. It
 covers the colour, type, shape and motion tokens, seven plain HTML and CSS
 components, and the contrast tables that show every pairing passes WCAG 2.2 AA.
 
-- **Version:** `v1.1.0` (the system's "v1, signed off 2026-09-26")
+- **Version:** `v1.1.0` (the system's "v1, signed off 2026-09-26") <!-- x-release-please-version -->
 - **Docs:** [design.monte3l.com](https://design.monte3l.com), built from this repository by its own docs kit
 - **License:** MIT, with the two bundled fonts under SIL OFL-1.1. See [License](#license).
 - **Credits:** Enrico Lionello ([`enri3l`](https://github.com/enri3l)) and Giulia Montevecchi ([`giulmonte`](https://github.com/giulmonte)), for monte3l. See [AUTHORS.md](AUTHORS.md).
@@ -51,7 +51,7 @@ file, and exits with code `2` if it is missing. Then, from a clone of this
 repository:
 
 ```sh
-bin/sync-design.sh v1.1.0 /path/to/your-repo
+bin/sync-design.sh vX.Y.Z /path/to/your-repo
 ```
 
 The script downloads the release, verifies it with `gh release verify` and
@@ -140,11 +140,19 @@ adopting a release is a plain copy.
 
 Releases are semver tags, and the tag is what a consumer records.
 
-| Bump | When |
-| --- | --- |
-| Major | A token, class or file is removed or renamed |
-| Minor | A token, component or variant is added, or a value changes and still passes AA |
-| Patch | Docs or the generator change, with no token change |
+| Bump | When | Commit type |
+| --- | --- | --- |
+| Major | A token, class or file is removed or renamed | `feat!:` or `fix!:`, with a `BREAKING CHANGE:` footer naming it |
+| Minor | A token, component or variant is added, or a value changes and still passes AA | `feat:` |
+| Patch | Docs or the generator change, with no token change | `fix:` |
+
+The release workflow reads the commit type, so it is the bump. A change to the
+payload (`source/`, `tokens.css`) must be `feat` or `fix`: a `docs:` or `chore:`
+commit is never released, so a brand-book fix is `fix(docs):`. Changes outside
+the payload (`ci`, `chore`, `test`, the repository's own docs) are not released:
+release-please skips a commit that only touches a directory outside the payload,
+and CI fails a pull request with a `feat` or `fix` commit that changes no payload
+file, because it would release a version whose payload is unchanged.
 
 The public API is:
 
@@ -177,9 +185,10 @@ never be reused, so a bad release is fixed with the next version.
 | `reuse lint` | The REUSE licensing check |
 
 Change `source/dtcg/` and regenerate. Never edit `tokens.css` or `SHA256SUMS` by
-hand. Every token change gets a line under `[Unreleased]` in
-[`CHANGELOG.md`](CHANGELOG.md) that names the token and its semver bump. In
-Claude Code, run `/add-token` to be walked through the whole change.
+hand. A token change is a Conventional Commit whose type is its semver bump (see
+Versions), with the token's name in the subject: the release workflow writes
+[`CHANGELOG.md`](CHANGELOG.md) from it. In Claude Code, run `/add-token` to be
+walked through the whole change.
 
 Commits are Conventional Commits, signed, with a `Signed-off-by` trailer
 (`git commit -s`), as in every monte3l repository. To report a vulnerability,
@@ -187,19 +196,24 @@ follow [`SECURITY.md`](SECURITY.md).
 
 ### Releasing
 
-For maintainers. Steps 1 to 3 change nothing public, so run them first.
+Releases are automatic and need no command. For maintainers:
 
-1. Update `CHANGELOG.md` and the version in `design/README.md` and this file.
-2. Run `node bin/build-design-tokens.mjs --check`, `node --test` and `reuse lint`.
-3. Rehearse with `bin/sync-design.sh --from <commit> v1.2.3 <consumer>` in a scratch copy of each consumer.
-4. Build the assets with `bin/package-release.sh vX.Y.Z <commit> dist`. The tarball is named after the tag, which is the name `sync-design.sh` asks for.
-5. Create the release as a **draft** and attach the three assets: `gh release create vX.Y.Z --draft --target <commit> --title vX.Y.Z --notes-file <notes> dist/*`. Download them again and compare them with the rehearsal.
-6. Publish it: `gh release edit vX.Y.Z --draft=false`.
-7. Check the attestation: `gh release verify vX.Y.Z`.
+1. Write Conventional Commits. The type is the bump: see the Versions table.
+2. On every merge to `main`, the `Release` workflow opens or updates one release
+   pull request. It sets the version in `README.md` and `design/README.md` and
+   writes the new section of `CHANGELOG.md`, grouped as Added, Changed and Fixed.
+3. Before you merge it, rehearse with
+   `bin/sync-design.sh --dry-run --from <commit> vX.Y.Z <consumer>` in a scratch
+   copy of each consumer. In Claude Code, `/release` reviews the pull request and
+   does this.
+4. Merge it with a merge commit. The workflow builds the assets with
+   `bin/package-release.sh`, attaches them to a draft, attests them and
+   publishes. `gh release verify vX.Y.Z` checks the result.
 
 > [!WARNING]
-> Publishing makes the tag permanent. Step 5 exists so that a mistake costs a
-> draft and not a version number.
+> Publishing makes the tag permanent. The release stays a draft until its three
+> assets are attached and attested, so a failure costs a draft and not a
+> version number.
 
 ### Project docs
 
