@@ -18,6 +18,7 @@ Node 24 (`.node-version`), no `package.json`, nothing to install.
 | `node source/docs-kit/build.mjs --check` | Build this repository's docs site and gate it: links, page coverage, `SHA256SUMS`, local CSS, parity with the payload. CI runs this |
 | `node source/docs-kit/build.mjs --out _site` | Write the docs site |
 | `node --test --test-name-pattern="shadow"` | Run one test |
+| `EVENT_NAME=pull_request BASE_SHA=<sha> HEAD_SHA=<sha> node bin/check-payload-commits.mjs` | What the `payload-commits` lane runs: fails if the range changes `source/`, `tokens.css` or `SHA256SUMS` without a `feat` or `fix` commit, or deletes or renames a payload file without a breaking one |
 | `sha256sum -c --quiet SHA256SUMS` | Check the payload hashes (`shasum -a 256 -c` on macOS) |
 | `bash -n bin/*.sh && shellcheck bin/*.sh` | Lint the shell scripts |
 | `reuse lint` | REUSE licensing check (CI runs it from `reuse.yml` with `fsfe/reuse-action`) |
@@ -40,10 +41,10 @@ CI (`.github/workflows/verify.yml`) also runs `jq empty` on every JSON file unde
 ## Conventions
 
 - Every script, test and the resolver carries an inline SPDX header. Files without comment syntax are covered by `REUSE.toml`, where the last matching table wins. The fonts and `source/licenses/` are OFL-1.1, not MIT.
-- **Every token change gets a `CHANGELOG.md` line under `[Unreleased]` that names the token and its semver bump**, even a one-value tweak, because consumers read it to decide whether to re-sync. Removing or renaming a token, class or file is major. Adding one, or changing a value that still passes AA, is minor. Report the before and after contrast ratios and any new value that equals a sibling token (for example a text step that lands on `color-text-secondary`).
+- **A token change is a Conventional Commit whose type is its semver bump, with the token's name in the subject**, even a one-value tweak: the release workflow writes the version and `CHANGELOG.md` from it, and consumers read the changelog to decide whether to re-sync. Removing or renaming a token, class or file is `feat!` (or `fix!`) with a `BREAKING CHANGE:` footer naming it. Adding one, or changing a value that still passes AA, is `feat`. A docs or generator change inside the payload (`source/`, `tokens.css`) is `fix`, because `docs:` and `chore:` are never released. Report the before and after contrast ratios and any new value that equals a sibling token (for example a text step that lands on `color-text-secondary`) in the pull request body. The `payload-commits` lane in CI fails a pull request that changes the payload without a `feat` or `fix` commit, because `chore:` and `docs:` are never released; it cannot tell a `feat` that should be a `fix`, so choose the type from the Versions table.
 - For token work, run `/add-token`: it walks the DTCG source, `tokens.json`, contrast tables, regeneration and the changelog in order. It rarely triggers on its own, so invoke it deliberately.
-- Releases are immutable, and a published tag can never be reused. Follow the README's draft-first release steps and never publish a release without being asked.
-- This repository adopts itself at the source tier (`design/README.md`: `Version adopted` plus `Tier: source`). The docs kit accepts that tier only here, where `designDir` is `.`. Bump the `Version adopted` line in the same commit as a release.
+- Releases are immutable, and a published tag can never be reused. They are automatic: the `Release` workflow opens a release pull request, and merging it publishes. Never merge it or publish a release without being asked. `/release` reviews that pull request and rehearses the consumer syncs.
+- This repository adopts itself at the source tier (`design/README.md`: `Version adopted` plus `Tier: source`). The docs kit accepts that tier only here, where `designDir` is `.`. Release-please bumps that line and the README's `Version:` line through an `x-release-please-version` comment. Never edit either by hand, and keep the comment on its line.
 
 ## Claude Code harness
 

@@ -134,8 +134,10 @@ only sanctioned Claude trailer in this repository. Nothing strips one for you
 naming the removed/renamed token, class, file or key and describing the
 migration path.
 
-**Token changes** also need a `CHANGELOG.md` line under `[Unreleased]` naming
-the token and its semver bump, in the same commit (see `/add-token`).
+**Token changes**: the commit type is the semver bump, and the subject names the
+token, because the release workflow writes the changelog line from it (see
+`/add-token`). A payload docs or generator change is `fix`, since `docs:` and
+`chore:` are never released.
 
 ## Step 6 — Run the commit
 

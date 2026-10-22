@@ -36,11 +36,11 @@ node --test
 
 ## 5. Record the semver impact (required, even for a one-value tweak)
 
-Consumers read the changelog to decide whether to re-sync, and a changed colour is visible to them even when the file diff is one line. So every token change gets a line under `## [Unreleased]` in `CHANGELOG.md` (Added, Changed or Removed) that names the token and the bump it implies, using the README "Versions" table: removing or renaming a token, class or file is **major**; adding one, or changing a value that still passes AA, is **minor**. The resolver's exports are a public API for `m3l-groundwork`, so mention it if the change alters them.
+Consumers read the changelog to decide whether to re-sync, and a changed colour is visible to them even when the file diff is one line. The release workflow writes that changelog from your commits, so the commit type is the record: use the README "Versions" table. Removing or renaming a token, class or file is **major** (`feat!:` or `fix!:`, with a `BREAKING CHANGE:` footer naming it); adding one, or changing a value that still passes AA, is **minor** (`feat(tokens):`). Put the token's name in the subject, because the subject becomes the changelog line, and put the contrast ratios in the pull request body. The resolver's exports are a public API for `m3l-groundwork`, so mention it if the change alters them.
 
 For a rename or removal, also search for the old name before regenerating: `grep -rnE '<old-name>' source artifact README.md`. Spellings differ by file (`radius.xl` in DTCG, `--radius-xl` in CSS, `r-xl` in preview classes), so search each form. The artifact preview pages and the brand book often still use the old name, and the parity test will not catch them.
 
-Do not bump the version or cut a release here. That is the `release` skill, and only when the user asks.
+Do not bump the version or cut a release here. The release workflow does that from your commits, and the `release` skill reviews its pull request, only when the user asks.
 
 ## Report
 

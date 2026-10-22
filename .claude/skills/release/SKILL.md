@@ -1,80 +1,74 @@
 ---
 name: release
-description: Prepare a m3l-design release up to a draft GitHub release, following the README "Releasing" steps 1 to 5. Run it only when the user types /release or explicitly asks to cut, prepare or draft a release. It never publishes.
+description: Review the open m3l-design release pull request before it is merged. Checks the proposed version against the README "Versions" table, the generated changelog, the payload checks and a dry-run sync into each consumer. Run it only when the user types /release or explicitly asks to review or prepare a release. It never merges or publishes.
 disable-model-invocation: true
-argument-hint: "[vX.Y.Z]"
+argument-hint: "[pull request number]"
 ---
 
-# Release m3l-design (draft only)
+# Review the m3l-design release pull request
 
-Releases here are immutable: once a tag is published, its name can never be used again, and a mistake costs a version number. This skill therefore does steps 1 to 5 of the README's "Releasing" section and **stops with a draft**. Publishing (step 6) and attestation (step 7) happen only when the user asks for them in plain words, after they have looked at the draft.
+Releases here are automatic and immutable. The `Release` workflow opens one pull request from the Conventional Commits since the last tag, and merging it builds the assets, attests them and publishes. A published tag name can never be reused, so a mistake costs a version number. This skill is the review that happens **before** the merge, and it stops there: merging is the user's decision, and approval to review is not approval to merge.
 
 Run from the repository root. Stop and report at the first failing check instead of working around it.
 
-## 1. Choose the version
+## 1. Find the pull request
 
-Read `CHANGELOG.md` `[Unreleased]` and `git log <last-tag>..HEAD`, then pick the bump from the README "Versions" table:
+```sh
+gh pr list --state open --search "chore(main): release" --json number,title,headRefOid,url
+```
 
-| Bump | When |
-| --- | --- |
-| Major | A token, class or file is removed or renamed |
-| Minor | A token, component or variant is added, or a value changes and still passes AA |
-| Patch | Docs or the generator change, with no token change |
+Use the number the user passed, if any. If there is none, nothing releasable has landed since the last tag, or a payload change was committed with a type that is never released. Go to step 2, and tell the user which.
 
-If the user passed a version argument, use it, but say so if it disagrees with the table. Confirm the final `vX.Y.Z` with the user before editing, because everything after this is keyed to it.
+## 2. Check the version against the commits
 
-## 2. Bump the version everywhere
+Read the commits since the last tag and the payload diff:
 
-Change these in one commit, and nothing else in that commit:
+```sh
+git log --format='%h %s' "$(git describe --tags --abbrev=0)"..origin/main
+git diff --stat "$(git describe --tags --abbrev=0)"..origin/main -- source tokens.css
+```
 
-- `CHANGELOG.md`: move the `[Unreleased]` entries under a new `## [X.Y.Z] - <today>` heading and fix the compare links at the bottom.
-- `README.md`: the `**Version:**` line near the top, and the `bin/sync-design.sh vX.Y.Z` example in "Adopt it".
-- `design/README.md`: the `**Version adopted:**` line and `**Date adopted:**`.
+Compare the proposed version with the README "Versions" table. The commit type is the bump, so check both directions:
 
-These files are outside `source/` and `tokens.css`, so `SHA256SUMS` does not change. If it does, something else was edited by hand. Find out what.
+| Finding | What it means | Fix |
+| --- | --- | --- |
+| Payload changed, but only `docs:` or `chore:` commits touch it | It will never be released | A follow-up `fix(docs):` commit, or a `Release-As: X.Y.Z` footer |
+| A token or class was removed or renamed, but no commit is `!` | The bump is too small | Amend the history through a pull request, or `Release-As` with the major version |
+| A `feat` that only changes docs or the generator | The bump is too large | `Release-As` with the patch version |
 
-Commit with a Conventional Commit message (for example `chore: release vX.Y.Z`) using `git commit -s`, as the repository requires. Do not push or tag.
+Report what you find. Do not change commits yourself.
 
-## 3. Verify
+## 3. Read the pull request
 
-Run all three and show their results:
+The release pull request must change **only** `CHANGELOG.md`, `README.md`, `design/README.md` and `.release-please-manifest.json`. Anything else, and above all `SHA256SUMS`, `tokens.css` or `source/`, means something was edited by hand.
+
+Check that the `Version:` line in `README.md`, the `Version adopted:` line in `design/README.md` and the manifest all name the proposed version, and that the new `CHANGELOG.md` section lists what the commits say. `scripts/doc-parity.mjs` compares the changelog with `Version adopted`, and CI runs it.
+
+## 4. Verify the pull request head
+
+In a scratch worktree of the pull request's head commit, never the working clone:
 
 ```sh
 node bin/build-design-tokens.mjs --check
 node --test
+node source/docs-kit/build.mjs --check
 pipx run --spec 'reuse[charset-normalizer]==6.2.0' reuse lint
 ```
 
-Never regenerate `tokens.css` or `SHA256SUMS` by hand to make `--check` pass. If it fails, a source change is missing its rebuild: run `node bin/build-design-tokens.mjs`, review the diff and commit it separately.
+Never regenerate `tokens.css` or `SHA256SUMS` to make `--check` pass. If it fails, a source change is missing its rebuild: that belongs in its own commit on `main`.
 
-## 4. Rehearse against each consumer
+## 5. Rehearse against each consumer
 
-The consumers are `m3l-groundwork` and `m3l-prompt-optimizer`. In a scratch copy of each (never the working clone):
-
-```sh
-bin/sync-design.sh --dry-run --from <commit> vX.Y.Z <scratch-consumer>
-```
-
-`<commit>` is the release commit from step 2. Summarise what would change per consumer. Flag anything that looks like a breaking change for a Minor or Patch release.
-
-## 5. Build the assets and create the draft
+The consumers are `m3l-groundwork`, `m3l-prompt-optimizer` and `m3l-output-governor`. The release pull request changes no payload file, so its head commit carries the payload that will be released. In a scratch copy of each consumer (never the working clone):
 
 ```sh
-bin/package-release.sh vX.Y.Z <commit> dist
-gh release create vX.Y.Z --draft --target <commit> --title vX.Y.Z --notes-file <notes> dist/*
+bin/sync-design.sh --dry-run --from <pull request head commit> vX.Y.Z <scratch-consumer>
 ```
 
-The tarball is named after the tag because that is the name `sync-design.sh` asks the release for. Write `<notes>` from the new CHANGELOG section into the scratchpad, not into the repository. Always pass `--draft`: a `gh release create` without it publishes immediately and the tag is gone for good.
-
-Then download the draft assets again and compare them with `dist/` (`sha256sum`) so you know what was uploaded is what was built.
+Summarise what would change per consumer. Flag anything that looks like a breaking change in a minor or patch release.
 
 ## 6. Stop
 
-Report the draft URL, the commit it targets and the results of steps 3 and 4, then tell the user the next steps are theirs to trigger:
+Report the pull request URL, the proposed version, and the results of steps 2 to 5. Then say the merge is theirs: merging with a merge commit publishes an immutable release. If the user asks for it afterwards, `gh release verify vX.Y.Z` checks the attestation.
 
-```sh
-gh release edit vX.Y.Z --draft=false   # publish: makes the tag permanent
-gh release verify vX.Y.Z               # check the attestation
-```
-
-Do not run either unless the user explicitly asks. Approval to prepare a release is not approval to publish it.
+Do not merge the pull request, and do not run `gh release edit --draft=false` or `gh release create`. The release guard hook asks before either.

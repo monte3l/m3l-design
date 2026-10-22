@@ -37,8 +37,10 @@ Report a suspected security vulnerability privately. See
    `sha256sum -c --quiet SHA256SUMS` (`shasum -a 256 -c` on macOS),
    `shellcheck bin/*.sh` and `reuse lint`.
 4. Add tests for new behavior and a regression test for a fix. A token change
-   also needs its `source/tokens.json` entry and a `CHANGELOG.md` line under
-   `[Unreleased]` that names the token and its semver bump.
+   also needs its `source/tokens.json` entry and a Conventional Commit whose
+   type is its semver bump (`feat`, `fix`, or `!` for a removal or rename) with
+   the token's name in the subject: the release workflow writes `CHANGELOG.md`
+   from it.
 5. Resolve every review thread. A pull request merges when its required checks
    pass and a code owner other than its author approves it.
 
