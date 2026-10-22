@@ -24,6 +24,50 @@
   **CI depth = thorough**: note this for Round 2 — `harness-guidance` may
   recommend additional current-best-practice lanes (e.g. a scheduled
   dependency audit) beyond what the baseline ships.
+- **CI depth = thorough also adds npm grouping to Dependabot.** Append this
+  block to `updates:` in `.github/dependabot.yml`, which the baseline ships
+  with only the `github-actions` ecosystem, at the same two-space item
+  indentation as that entry:
+
+  ```yaml
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore"
+    labels:
+      - "dependencies"
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+        update-types: ["minor", "patch"]
+      prod-dependencies:
+        dependency-type: "production"
+        update-types: ["minor", "patch"]
+  ```
+
+  The baseline's comment above the `github-actions` entry says npm updates are
+  deliberately not enabled here: rewrite or drop that sentence when you add the
+  block, so the file does not contradict itself. Major bumps stay one PR each.
+  Dependabot's `npm` ecosystem also covers pnpm, but GitHub's
+  supported-ecosystems page lists pnpm only up to v10 and the baseline pins a
+  newer pnpm, so when the project uses pnpm, support for its pnpm version is
+  **unconfirmed**: say so in Step 7 and tell the owner to check the first
+  Dependabot PR. Upstream, `dependabot-core` is adding pnpm 12 support in stages and
+  GitHub's docs lag behind it: Part 1 (#16513) and Part 2 (#16517) merged on
+  2026-10-09, Part 3 (#16521) is still open, and #15904 (a pnpm 12 environment
+  lockfile read as an empty dependency graph) is still open. A
+  `minimumReleaseAge` failure on pnpm 12.3 or newer was fixed (#16375), but
+  projects that use `catalogs` or workspace `overrides` still hit open issues
+  (grouped updates leave overrides stale). If the project uses `catalog:`
+  entries or workspace `overrides`, tell the owner to expect failed
+  or partial updates until those issues close. **At any other CI depth in a fresh bootstrap** this is not
+  offered as a question (the plugin offer's question counts are fixed); it is
+  only a Step 7 follow-up.
+
 - **Agents not kept**: delete their `.claude/agents/<name>.md` file. Never
   delete `Explore`, `test-author`, or `code-implementer` even if unselected
   — they're load-bearing for the hub-and-spoke loop `CLAUDE.md` documents.
@@ -39,6 +83,12 @@
 the project actually has, instead of a named baseline path — "tests must not
 hard-fail `pre-push`" is applied to _the gate the inventory found_ (jest in
 CI, husky locally, whatever it is), not to `lefthook.yml`/`ci.yml` by name.
+In adopt mode the Dependabot block above is never applied, because Step 0.4
+did not confirm it. When `.github/dependabot.yml` already exists and has no
+`npm` entry for directory "/", name the block in Step 7 as a follow-up the
+owner can paste in; never create the file, and never touch an existing `npm`
+entry (the project's own cadence and groups win).
+
 Concretely, adopt-mode Round 1 applies exactly three things, all already
 confirmed in Step 0.4:
 
@@ -67,8 +117,8 @@ confirmed in Step 0.4:
   `recommended: false`, since it changes the day-to-day workflow rather than
   adding a nicety, and `claude-github` is always `recommended: false`, since
   its workflows need an auth secret and the review spends API credits on
-  every PR; the other five are always `recommended: true`), but `publishing`'s and `licensing`'s do (each
-  recommended for `library`/`cli`, not for `frontend`/`service`) — if the comparison surfaces a real
+  every PR; the other five are always `recommended: true`), but `publishing`'s, `licensing`'s, `frontend`'s and `service`'s do (`publishing` and
+  `licensing` are each recommended for `library`/`cli`, `frontend` only for the `frontend` kind, `service` only for the `service` kind) — if the comparison surfaces a real
   conflict there or for any future kind-scoped pack, raise it rather than
   silently overriding the user's Step 0.4 answer, mirroring Step 4's "the
   one exception" rule for guidance findings. Before installing, check the
@@ -162,18 +212,45 @@ already-installed pack's skills (e.g. the `github` pack's three);
 in the project's root `package.json` (the same read in both modes; a fresh
 bootstrap carries only the baseline's own devDependencies, so no SDK plugin
 is pre-selected there, and a monorepo whose SDK dependency sits only in a
-workspace package is not pre-selected either -- the user can still pick it). Call
+workspace package is not pre-selected either -- the user can still pick it,
+except for an integration, where `recommendIntegrations` does not return it);
+`hasDesignSystem` is `true` when the project already carries its own design
+system: a design-token file (`tokens.css` or `tokens.json`, at the project
+root or under `design/` or `src/`), a CSS file with a Tailwind `@theme` block,
+or an in-house design-system package among its `dependencies`. A bare Tailwind
+config does not count, and a fresh bootstrap is `false`. It only decides
+whether `frontend-design` is pre-selected, since that plugin's skill defaults
+to proposing its own palette and token system. Call
 `recommendPlugins(answers, context)` from `plugin-map.ts`
 (alongside this file, same copy mechanism as `pack-map.ts`) with the
 now-confirmed `InterviewAnswers`, and offer every entry it returns (ten, or
-eleven for the `plugin` kind, whose `plugin-dev` entry comes last) in **one**
+eleven for the `plugin` kind, whose `plugin-dev` entry comes last, or the
+`frontend` kind, whose `frontend-design` entry comes last) in **one**
 `AskUserQuestion` call holding three multi-select questions (a question
 takes at most four options, so split the list in its fixed order: entries
 1-4, 5-7, and 8 to the last entry, so 8-10 or 8-11), each option pre-selected per its entry's `recommended`
 boolean with its `because` shown as the evidence -- same
 "visible reasoning" principle as every other inference in this skill.
 
-Write every confirmed `true` entry into `.claude/settings.json`'s
+**Integrations (both modes), right after that offer.** Call
+`recommendIntegrations(context)` from the same `plugin-map.ts` with the same
+context. It returns a plugin only when the project's `dependencies` name that
+service's SDK or CLI (for example `@sentry/node`, `@supabase/supabase-js`,
+`prisma`, `wrangler`), so it is usually empty: when it is, say nothing and move
+on. Otherwise offer its entries in one more `AskUserQuestion` call, in the
+table's order, with none pre-selected -- every `recommended` is `false`,
+because these plugins connect Claude to a live account or run unpinned code
+and the user opts in -- and each `because` shown as the evidence, with its
+`prerequisites` beside it (for three of the plugins they include a note that
+the server starts through an unpinned `npx` launch). The tool takes two to four
+options per question, so use as few multi-select questions as fit four options
+each and split evenly across them, never leaving a question with fewer than two
+options (five entries are 3+2, seven are 4+3). A single entry is asked as one
+`Enable / Skip` question instead. Write every entry the user selected into
+`enabledPlugins` and print their install commands and `prerequisites` as
+described below.
+
+Write every entry the user selected into `.claude/settings.json`'s
 `enabledPlugins` (`{"<id>": true}` per entry, e.g.
 `"context7@claude-plugins-official": true`) -- additive and entry-by-entry,
 same discipline as the CLI's own `mergeSettingsHooks` (which owns the

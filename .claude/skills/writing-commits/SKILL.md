@@ -6,6 +6,7 @@ description: >-
   What → Why/How → semver impact, add Co-Authored-By when AI-assisted, then
   commit signed and signed off (git commit -s). Use for "commit this", "write
   a commit", "stage and commit".
+disable-model-invocation: true
 ---
 
 # writing-commits

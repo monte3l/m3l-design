@@ -12,6 +12,7 @@ description: >-
   result against current upstream recommendations. Use for /customize,
   "tailor this project", "adopt this project", "set up this scaffold for my
   project", or right after a fresh or adopted m3l-groundwork bootstrap.
+disable-model-invocation: true
 ---
 
 # customize
@@ -258,6 +259,23 @@ declined, plus any prerequisite named against an enabled plugin
 (e.g. `typescript-language-server` on `PATH`, or the Python version a
 plugin's `prerequisites` names) as a follow-up the
 user still has to satisfy.
+
+Close with two follow-ups the project's own files cannot carry, because both
+are per-user. **Notifications:** Claude Code sends a desktop notification by
+itself only in Ghostty, Kitty and iTerm2; in another terminal, set
+`"preferredNotifChannel": "terminal_bell"` in `~/.claude/settings.json` (or
+add a `Notification` hook) to be alerted when Claude needs a permission or is
+waiting for input. **Fewer permission prompts:** after a few sessions, run
+`/fewer-permission-prompts`, which scans the transcripts for common read-only
+Bash and MCP calls and proposes an allowlist for the project's
+`.claude/settings.json`; the baseline ships none because it cannot know the
+project's commands in advance.
+
+**Dependabot grouping:** at CI depth thorough in a fresh bootstrap, `.github/dependabot.yml`
+gets an `npm` entry with `groups` (see Step 3 Round 1). Report whether it was
+added, and that Dependabot support for the project's pnpm version is
+**unconfirmed**: tell the owner to check the first Dependabot PR, and to expect failed or partial updates if the project uses pnpm `catalogs` or workspace `overrides`. At any other
+depth, mention it as an option only.
 
 **Write the report to a file as well (adopt mode only).** Save the same report
 to `.groundwork/customization-report.md`, so a reviewer can read it without

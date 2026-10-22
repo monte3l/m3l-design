@@ -4,17 +4,21 @@
 /**
  * The plugin recommendation table `/customize` reads in Step 3 to pre-select
  * which built-in `claude-plugins-official` marketplace plugin(s) to offer,
- * with the evidence shown alongside each recommendation -- the same
+ * and, separately, which service-integration plugins to offer (never
+ * pre-selected) for the SDKs the project depends on, with the evidence
+ * shown alongside each recommendation -- the same
  * "inference happens once, visibly, with its reasoning attached" principle
  * `pack-map.ts` applies to `templates/packs/` bundles. A stored, unit-tested
  * module rather than a judgment made afresh each run, so the same interview
  * answers and context always produce the same recommendation.
  *
- * `plugin-dev` is offered only for the `plugin` kind (a repo that authors a
- * Claude Code plugin) and is then appended last; for every other kind it is
- * absent rather than listed as not recommended, so the ten-entry list
- * `/customize` offers in fixed batches keeps its order. m3l-groundwork itself
- * enables it, since it authors the `/customize` plugin.
+ * Two plugins are offered for one kind only and are then appended last as an
+ * eleventh entry: `plugin-dev` for the `plugin` kind (a repo that authors a
+ * Claude Code plugin), and `frontend-design` for the `frontend` kind. For
+ * every other kind each is absent rather than listed as not recommended, so
+ * the first ten entries `/customize` offers in fixed batches keep their
+ * order. m3l-groundwork itself enables `plugin-dev`, since it authors the
+ * `/customize` plugin.
  *
  * Evaluated and deliberately not offered, recorded so they are not proposed
  * again:
@@ -35,6 +39,20 @@
  * - `remember` -- third-party under a source-available license that forbids
  *   modification and redistribution; it sends transcripts to `claude -p`,
  *   writes `.remember/`, and can push memory to a remote.
+ * - `commit-commands` -- its `/commit` asks for neither Conventional Commits
+ *   nor a Co-Authored-By trailer, `/commit-push-pr` commits, pushes and opens
+ *   the PR in one turn, and `/clean_gone` force-deletes local branches whose
+ *   remote is gone, and their worktrees, so it bypasses and competes with the
+ *   baseline's `writing-commits`, `creating-prs` and `finishing-work`.
+ * - `vercel` -- ships SessionStart and Skill hooks and, by default, sends
+ *   telemetry that includes an install id.
+ * - `stripe` -- its node hooks run on every prompt and every tool batch,
+ *   spawn the `stripe` CLI and inject feedback prompts.
+ * - `convex` -- a PreToolUse lint hook, a Stop hook that can run for up to
+ *   180 seconds, polling shell monitors, default-on telemetry and an
+ *   unpinned `npx convex@latest`.
+ * - `linear` -- its SDK package name was not confirmed from vendor docs, so
+ *   there is no verified dependency signal to offer it from.
  */
 import type { InterviewAnswers } from "./kind-facet-map.js";
 
@@ -67,6 +85,14 @@ export interface PluginRecommendationContext {
    * `devDependencies` combined. Absent reads as none.
    */
   readonly dependencies?: readonly string[];
+  /**
+   * True when the project already carries its own design system: a
+   * design-token file, a CSS file with a Tailwind `@theme` block, or an
+   * in-house design-system package in its dependencies. A bare Tailwind
+   * config does not count, and a fresh bootstrap is false. Absent reads as
+   * false.
+   */
+  readonly hasDesignSystem?: boolean;
 }
 
 function pluginId(name: string): string {
@@ -288,28 +314,41 @@ function recommendSkillCreator(
 }
 
 /**
- * `claude-code-setup` recommends automations (hooks, skills, MCP servers,
- * subagents) for a codebase -- which is exactly the job `/customize` is
- * already doing, against a baseline designed for it. Running both would
- * produce two competing sets of suggestions, so it is never pre-selected;
- * it is listed with that reason rather than silently omitted, so the user
- * can see why. TypeScript-toolchain gaps are a distinct question from Claude
- * Code automation and are answered instead by the baseline
- * `typescript-guidance` skill's `gaps` mode.
+ * `claude-code-setup`'s `claude-automation-recommender` skill is read-only:
+ * it recommends hooks, subagents, skills, plugins and MCP servers for any
+ * codebase but edits nothing. The overlap with `/customize` is partial.
+ * Hooks, subagents, plugins and the skills those plugins supply are where the
+ * two compete -- `/customize` already tailors hooks, subagents and plugins
+ * against the baseline and edits the files, and its `harness-guidance` skill
+ * has authority over skills, so the plugin's picks would duplicate or
+ * contradict it (its skills table suggests skills from plugins this table
+ * deliberately rejects, such as `commit`, `writing-rules` and `feature-dev`,
+ * and it suggests a `code-reviewer` subagent the baseline already ships).
+ * What it alone would add -- MCP server suggestions drawn mostly from the
+ * project's dependencies and tooling signals, which `/customize` does not
+ * make, plus project-domain skill ideas such as API docs, migrations or
+ * component scaffolds -- is not enough to outweigh that conflict, so it is
+ * never pre-selected; it is listed with that reason rather than silently
+ * omitted, so the user can see why. TypeScript-toolchain gaps are a distinct
+ * question from Claude Code automation and are answered instead by the
+ * baseline `typescript-guidance` skill's `gaps` mode.
  */
 function recommendClaudeCodeSetup(): PluginRecommendation {
   return {
     id: pluginId("claude-code-setup"),
     recommended: false,
     because:
-      "its automation recommender overlaps what /customize is already " +
-      "doing -- tailoring hooks, skills and agents to this project against " +
-      "the baseline -- so enabling it would produce a second, competing " +
-      "set of suggestions. TypeScript-toolchain gaps are a separate " +
-      "question from Claude Code automation, and are answered instead by " +
-      "the baseline typescript-guidance skill's gaps mode with " +
-      "live-researched, cited recommendations. " +
-      "Listed so the choice is visible, not silently left out.",
+      "its claude-automation-recommender skill is read-only: it suggests " +
+      "hooks, subagents, skills, plugins and MCP servers but edits nothing. " +
+      "It competes with /customize on hooks, subagents, plugins and the " +
+      "skills those plugins supply, which /customize already tailors " +
+      "against the baseline, so its picks would duplicate or contradict " +
+      "them. What it alone would add is MCP server suggestions drawn mostly " +
+      "from the project's dependencies, which /customize does not make, " +
+      "plus project-domain skill ideas such as API docs or migrations. " +
+      "TypeScript-toolchain gaps are answered instead by the baseline " +
+      "typescript-guidance skill's gaps mode. Listed so the choice is " +
+      "visible, not silently left out.",
   };
 }
 
@@ -331,16 +370,50 @@ function recommendPluginDev(): PluginRecommendation {
 }
 
 /**
+ * `frontend-design` is a single skill of visual design guidance -- palette,
+ * type, layout, a list of "generated look" traits to avoid, and a
+ * plan-then-build process -- with no hooks, commands or agents. It follows a
+ * brief that pins down a visual direction, but by default its first pass
+ * proposes its own palette and token system, which competes with a design
+ * system the project already has. So it is pre-selected for the `frontend`
+ * kind only when no existing design system was found.
+ */
+function recommendFrontendDesign(
+  context: PluginRecommendationContext | undefined,
+): PluginRecommendation {
+  const recommended = !(context?.hasDesignSystem ?? false);
+  return {
+    id: pluginId("frontend-design"),
+    recommended,
+    because: recommended
+      ? "it is one design-guidance skill -- palette, type, layout, " +
+        "generated-look traits to avoid and a plan-then-build process -- " +
+        "with no hooks or agents, and a frontend project has UI work to " +
+        "apply it to. Pre-selected because no existing design system was " +
+        "found in the project."
+      : "not pre-selected because the project already has a design " +
+        "system: by default this skill proposes its own palette and token " +
+        "system, which competes with the project's existing one (it still " +
+        "follows a brief that pins down a visual direction). It stays on " +
+        "offer if that design system is only partial.",
+  };
+}
+
+/**
  * Every built-in marketplace plugin's recommendation for the given interview
  * answers and context: always the same ten in the same order, plus an
- * eleventh, `plugin-dev`, appended last for the `plugin` kind only.
+ * eleventh appended last for two kinds only -- `plugin-dev` for the `plugin`
+ * kind, `frontend-design` for the `frontend` kind.
  * Pre-selected unconditionally: `context7`, `typescript-lsp`,
- * `claude-md-management` and `claude-security`. Conditionally: `github` when the `github` pack was
+ * `claude-md-management` and `claude-security`, plus `plugin-dev` whenever it
+ * is present. Conditionally: `github` when the `github` pack was
  * chosen; `security-guidance` for a `service` or a `thorough` CI depth;
  * `skill-creator` when the project has its own skills; `agent-sdk-dev` and
  * `mcp-server-dev` when the project depends on the Claude Agent SDK or the
- * MCP SDK respectively. Never: `claude-code-setup`. A pure function --
- * identical inputs always produce an equal result.
+ * MCP SDK respectively; `frontend-design`, when present, unless the project
+ * already has a design system (`hasDesignSystem`). Never:
+ * `claude-code-setup`. A pure function -- identical inputs always produce an
+ * equal result.
  *
  * @example
  * ```ts
@@ -375,5 +448,181 @@ export function recommendPlugins(
     recommendAgentSdkDev(context),
     recommendMcpServerDev(context),
   ];
-  return answers.kind === "plugin" ? [...fixed, recommendPluginDev()] : fixed;
+  if (answers.kind === "plugin") return [...fixed, recommendPluginDev()];
+  if (answers.kind === "frontend") {
+    return [...fixed, recommendFrontendDesign(context)];
+  }
+  return fixed;
+}
+
+/**
+ * One service-integration plugin: the exact package names and whole npm
+ * scopes (written with their trailing `/`) that signal it, whether the
+ * plugin ships skills beside its MCP server, an optional phrase saying how
+ * the server serves the dependency, the caveat that closes its reasoning,
+ * and its prerequisites.
+ */
+interface IntegrationSpec {
+  readonly name: string;
+  readonly exact: readonly string[];
+  readonly scopes: readonly string[];
+  readonly hasSkills: boolean;
+  readonly serves?: string;
+  readonly caveat: string;
+  readonly prerequisites: readonly string[];
+}
+
+const LIVE_ACCOUNT =
+  "Not pre-selected because the plugin connects Claude to a live account.";
+
+const INTEGRATIONS: readonly IntegrationSpec[] = [
+  {
+    name: "playwright",
+    exact: ["@playwright/test", "@playwright/mcp"],
+    scopes: [],
+    hasSkills: false,
+    serves: " by driving a real browser",
+    caveat:
+      "Not pre-selected because its server downloads and runs unpinned " +
+      "npm code at every launch.",
+    prerequisites: [
+      "Node.js 18 or newer",
+      "the plugin's MCP server launches through " +
+        "`npx @playwright/mcp@latest`, which is unpinned: it downloads and " +
+        "runs npm code at every launch",
+      "no account or sign-in is needed",
+    ],
+  },
+  {
+    name: "firebase",
+    exact: ["firebase", "firebase-admin", "firebase-tools"],
+    scopes: [],
+    hasSkills: false,
+    caveat: LIVE_ACCOUNT,
+    prerequisites: [
+      "Node.js and npm",
+      "a Firebase (Google) account and a Firebase project",
+      "`firebase login` (the server also has a login tool)",
+      "the server launches through `npx -y firebase-tools@latest mcp`, " +
+        "which is unpinned",
+    ],
+  },
+  {
+    name: "supabase",
+    exact: [],
+    scopes: ["@supabase/"],
+    hasSkills: true,
+    caveat:
+      LIVE_ACCOUNT +
+      " Note: the catalog entry's repository is under the " +
+      "supabase-community org, although its manifest names Supabase as " +
+      "author.",
+    prerequisites: [
+      "a Supabase account",
+      "the MCP server signs in with OAuth 2.1 (a scoped personal access " +
+        "token in a Bearer header is the CI alternative)",
+    ],
+  },
+  {
+    name: "neon",
+    exact: ["@neon/ai-sdk-provider"],
+    scopes: ["@neondatabase/"],
+    hasSkills: true,
+    caveat: LIVE_ACCOUNT,
+    prerequisites: [
+      "a Neon account",
+      "OAuth sign-in on first use of the MCP tools",
+    ],
+  },
+  {
+    name: "prisma",
+    exact: ["prisma", "@prisma/client"],
+    scopes: [],
+    hasSkills: false,
+    caveat: LIVE_ACCOUNT,
+    prerequisites: [
+      "a Prisma account and workspace (sign-in for the remote server)",
+      "the plugin also ships a local server that launches through " +
+        "`npx -y prisma mcp`, which is unpinned",
+    ],
+  },
+  {
+    name: "sentry",
+    exact: [],
+    scopes: ["@sentry/"],
+    hasSkills: true,
+    caveat: LIVE_ACCOUNT,
+    prerequisites: ["a Sentry account"],
+  },
+  {
+    name: "cloudflare",
+    exact: ["wrangler", "@cloudflare/ai-chat", "@cloudflare/sandbox"],
+    scopes: [],
+    hasSkills: true,
+    caveat: LIVE_ACCOUNT,
+    prerequisites: ["a Cloudflare account"],
+  },
+];
+
+function integrationBecause(spec: IntegrationSpec, dependency: string): string {
+  const surface = spec.hasSkills ? "MCP server and skills" : "MCP server";
+  return (
+    `${dependency} is among the project's dependencies, so this ` +
+    `plugin's ${surface} would serve it${spec.serves ?? ""}. ${spec.caveat}`
+  );
+}
+
+function matchesSpec(spec: IntegrationSpec, dependency: unknown): boolean {
+  if (typeof dependency !== "string") return false;
+  return (
+    spec.exact.some((name) => name === dependency) ||
+    spec.scopes.some((scope) => dependency.startsWith(scope))
+  );
+}
+
+/**
+ * The service-integration plugins worth offering for the project's
+ * dependencies: `playwright`, `firebase`, `supabase`, `neon`, `prisma`,
+ * `sentry` and `cloudflare`, each returned only when one of its verified
+ * dependency signals is present, at most once, in that fixed order. None is
+ * ever pre-selected (`recommended` is always false): each connects Claude to
+ * a live account or runs unpinned code, which is the user's call to make.
+ * Each `because` names the first matching dependency in the order the
+ * context lists them, and `prerequisites` is always non-empty.
+ *
+ * An integration is offered only if its plugin ships an MCP server (and
+ * sometimes skills) but no hooks and no default-on telemetry, and only on a
+ * verified dependency signal: an exact package name or a whole npm scope,
+ * never a bare prefix. Kept apart from {@link recommendPlugins}, whose ids
+ * it never repeats. A pure function -- identical inputs always produce an
+ * equal result, and the context is never mutated.
+ *
+ * @example
+ * ```ts
+ * import { recommendIntegrations } from "./plugin-map.js";
+ *
+ * const offers = recommendIntegrations({
+ *   dependencies: ["@sentry/node", "prisma"],
+ * });
+ * const ids = offers.map((offer) => offer.id);
+ * ```
+ */
+export function recommendIntegrations(
+  context?: PluginRecommendationContext,
+): PluginRecommendation[] {
+  const dependencies: readonly unknown[] = context?.dependencies ?? [];
+  const offers: PluginRecommendation[] = [];
+  for (const spec of INTEGRATIONS) {
+    const matched = dependencies.find((dependency) =>
+      matchesSpec(spec, dependency),
+    );
+    if (typeof matched !== "string") continue;
+    offers.push({
+      id: pluginId(spec.name),
+      recommended: false,
+      because: integrationBecause(spec, matched),
+      prerequisites: [...spec.prerequisites],
+    });
+  }
+  return offers;
 }
