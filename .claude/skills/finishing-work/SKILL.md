@@ -9,6 +9,7 @@ description: >-
   branch or stale refs linger -- even when it sounds like a one-line git
   command, because deleting a branch that never merged loses work and this
   skill checks first. GitHub stance: gh CLI.
+disable-model-invocation: true
 ---
 
 # finishing-work

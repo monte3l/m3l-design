@@ -7,6 +7,7 @@ description: >-
   approve. Use for /reviewing-dependabot-prs, "review the dependabot PRs",
   "triage dependency updates", or when several Dependabot PRs have
   accumulated. GitHub stance: gh CLI.
+disable-model-invocation: true
 ---
 
 Triage every open Dependabot pull request in this repository: classify each
