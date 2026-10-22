@@ -7,6 +7,7 @@ description: >-
   check name alone. Use for /watching-pr-checks, "check this PR's status",
   "is this PR ready to merge", "did CI pass on my PR". GitHub stance: gh
   CLI.
+allowed-tools: Bash(gh pr view *) Bash(gh pr checks *) Bash(gh run view *)
 ---
 
 Check one pull request's CI status and act on what the checks actually

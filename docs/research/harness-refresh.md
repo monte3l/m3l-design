@@ -32,13 +32,20 @@ Open, none of them blocking:
 | SessionStart matcher omits `clear` and `fork`, so the handoff is not re-injected there | `.claude/settings.json` | Deferred by the owner on 2026-10-20 and not re-asked on 2026-10-22. A fresh `/clear` start is usually deliberate |
 | `token-change-reviewer` and `brand-markdown-reviewer` pin no `model`, `effort` or `maxTurns` | `.claude/agents/` | Left as is by the owner. Cost follows the session, or `CLAUDE_CODE_SUBAGENT_MODEL` if it is ever set (it outranks the session model) |
 | The four reviewers that hold `Bash` (`Explore`, `code-reviewer`, `silent-failure-hunter`, `token-change-reviewer`) rely on prompt text to stay read-only | `.claude/agents/` | Deferred by the owner on 2026-10-22. A `Bash(...)` specifier in `disallowedTools` removes the whole tool, so it cannot narrow Bash. The options are `permissions.deny` rules such as `Bash(git push *)` (they apply to subagents and the hub) or a frontmatter `PreToolUse` hook that exits 2 (install the script before registering it) |
-| `watching-pr-checks`, `triaging-ci` and `triaging-scan-alerts` could use `allowed-tools` or `context: fork`; `add-token` could use `paths: source/dtcg/**` | `.claude/skills/` | Optional. Documented fields the skills do not use yet. `when_to_use` can also move trigger phrases out of `description` |
-| `Explore` description is long (747 characters) | `.claude/agents/Explore.md` | Optional trim. Every description is under both caps (303 to 779 characters, 1,024 and 1,536) |
-| `Explore` pins `claude-haiku-5-5` with no `effort` | `.claude/agents/Explore.md` | Optional: `effort: low` for search work, per the effort page's pointer for subagents |
 | `skillOverrides` keys with an `anthropic-skills:` prefix are not documented as valid | `.claude/settings.local.json` | Unverified and personal. The file was absent when checked on 2026-10-22. Test with `/skills` if it returns |
 | Project-scope `enabledPlugins` enables a plugin but installs nothing | `.claude/settings.json` | Each collaborator runs `claude plugin install <id> --scope project` once. Official-marketplace plugins auto-update by default, so plugin code changes on disk without review |
 | `claude-code-setup` is no longer in `enabledPlugins` | `.claude/settings.json` | Removed outside the 2026-10-22 run, after the 2026-10-20 sweep enabled it. It matches the owner's "none" answer for that plugin, so it was left out |
 | `Read` deny rules do not cover `NotebookEdit` and do not stop `grep -r` or subprocess reads | `.claude/settings.json` | Coverage note only. This repository has no notebooks |
+
+Optional items worked through on 2026-10-22:
+
+- **Applied.** `allowed-tools` on `watching-pr-checks` (`gh pr view`, `gh pr checks`, `gh run view`) and `triaging-ci` (`gh run list`, `gh run view`, `git rev-parse`), read-only commands only, so `gh pr merge` still prompts. `triaging-ci` step 1 now resolves the branch in its own command, because a `$(...)` inside `gh run list` would not match the pre-approved pattern. `effort: medium` on `Explore`.
+- **Skipped `allowed-tools` on `triaging-scan-alerts`.** Its read and its dismissal are both `gh api`, and a prefix rule cannot tell them apart.
+- **Closed `context: fork`.** A fork has no conversation history, which breaks the merge confirmation, the `/triaging-ci` handoff and the option choice at the end of both triage skills.
+- **Closed `paths` on `add-token`.** The skill is needed when someone asks for a token change, before any `source/dtcg/` file is open, so `paths` would hide it at that point.
+- **Closed `when_to_use`.** It is appended to `description` and counts toward the same 1,536-character cap, so it only moves text around.
+- **Closed the `Explore` description trim.** The docs warn only above 15,000 tokens of combined agent descriptions, and the breadth vocabulary is guidance for the caller.
+- **`effort: medium`, not `low`, for `Explore`.** The effort page's general table names `low` for subagents, but its Haiku 5.5 section overrides that: "In long agent prompts, the model is more likely to skip a search, stop early, or skip a check at `low`". `medium` is Haiku 5.5's default, and pinning it stops the session level from leaking in.
 
 Resolved on 2026-10-22: the fail-open guards (all four now set `onFailure`), side-effecting skills that were model-invocable, and the `guard-secret-writes` note that `onFailure` needs Claude Code 2.1.295 or later (the sessions here run 2.1.304 or later, and older versions ignore the key and fail open).
 
@@ -82,7 +89,8 @@ Resolved on 2026-10-22: the fail-open guards (all four now set `onFailure`), sid
 
 - `description` is capped at 1,024 characters by the skills spec, and Claude Code truncates the combined `description` and `when_to_use` at 1,536. The listing budget is 1% of the context window by default, and `skillListingBudgetFraction`, `SLASH_COMMAND_TOOL_CHAR_BUDGET` and `skillListingMaxDescChars` change it. Sources: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices and https://code.claude.com/docs/en/skills (retrieved 2026-10-22).
 - Keep `SKILL.md` under 500 lines and move detail into files linked one level deep. Source: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices (retrieved 2026-10-22).
-- `disable-model-invocation: true` stops Claude from loading a skill automatically, keeps it out of subagent preloads and scheduled tasks, and leaves it available as `/name`. The docs do not call it a side-effect rule. Documented fields this repository does not use yet: `when_to_use`, `allowed-tools`, `context: fork`, `paths`, `model`, `effort`, `hooks`, `shell`, `arguments`. Source: https://code.claude.com/docs/en/skills (retrieved 2026-10-22).
+- `disable-model-invocation: true` stops Claude from loading a skill automatically, keeps it out of subagent preloads and scheduled tasks, and leaves it available as `/name`. The docs do not call it a side-effect rule. Documented fields this repository does not use yet: `when_to_use`, `context: fork`, `paths`, `model`, `effort`, `hooks`, `shell`, `arguments`. Source: https://code.claude.com/docs/en/skills (retrieved 2026-10-22).
+- `allowed-tools` pre-approves the listed tools for the turn that invokes the skill and clears on the next message. It does not restrict which tools are callable, and `permissions` still govern the rest. Workspace trust does not gate it. `context: fork` starts a subagent that does not see the conversation, and `paths` limits automatic loading to matching files. Source: https://code.claude.com/docs/en/skills (retrieved 2026-10-22).
 
 ### hooks-lifecycle
 
