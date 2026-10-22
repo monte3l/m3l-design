@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 
 import {
+  escapeCommandData,
   isBreaking,
   isPayload,
   isReleasable,
@@ -108,4 +109,55 @@ test("outside a pull request the script does nothing, and with no commits it fai
   const bad = run({ EVENT_NAME: "pull_request", BASE_SHA: "x", HEAD_SHA: "y" });
   assert.equal(bad.status, 1);
   assert.match(bad.stderr, /failing closed/);
+});
+
+const withFiles = (subject, ...paths) => ({ ...commit(subject), sha: "abcdef1234567", files: paths.map((p) => modified(p)) });
+
+test("a feat or fix commit that changes no payload file is refused, and a non-release type is not", () => {
+  const problems = payloadProblems([modified("README.md")], [withFiles("fix: typo in README", "README.md")]);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /abcdef1 "fix: typo in README"/);
+  assert.match(problems[0], /docs, chore, ci or test/);
+  assert.deepEqual(payloadProblems([modified("README.md")], [withFiles("docs: typo in README", "README.md")]), []);
+});
+
+test("a feat or fix commit that also changes a payload file is fine, even with other files", () => {
+  assert.deepEqual(payloadProblems([modified("tokens.css"), modified("README.md")], [withFiles("fix: contrast", "README.md", "tokens.css")]), []);
+});
+
+test("the per-commit rule only applies to a commit that carries its files", () => {
+  assert.deepEqual(payloadProblems([modified("README.md")], [commit("fix: typo in README")]), []);
+});
+
+test("a non-payload fix next to a payload chore is refused for the fix, and the chore is then covered", () => {
+  // The fix counts as releasable for the pull-request rule, so only rule 3 fires.
+  const files = [modified("source/dtcg/color.json")];
+  const problems = payloadProblems(files, [withFiles("fix: harness", ".claude/x.sh"), withFiles("chore: colour", "source/dtcg/color.json")]);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /fix: harness/);
+  // Retype the harness commit and the payload change has no releasable commit left.
+  const retyped = payloadProblems(files, [withFiles("chore: harness", ".claude/x.sh"), withFiles("chore: colour", "source/dtcg/color.json")]);
+  assert.equal(retyped.length, 1);
+  assert.match(retyped[0], /no commit is feat or fix/);
+});
+
+test("a commit subject cannot start a workflow command", () => {
+  assert.equal(escapeCommandData("a%0A::error::x\r\n100%"), "a%250A::error::x%0D%0A100%25");
+  assert.ok(!/[\r\n]/.test(escapeCommandData("one\ntwo")));
+});
+
+// The release config can only exclude directories, so a new top-level
+// directory must be listed there (or be the payload), or its fix and feat
+// commits would release a version with an unchanged payload.
+test("every tracked top-level directory is the payload or excluded from releases", async () => {
+  const { readFileSync } = await import("node:fs");
+  const config = JSON.parse(readFileSync(new URL("../release-please-config.json", import.meta.url), "utf8"));
+  const excluded = new Set(config.packages["."]["exclude-paths"]);
+  const root = new URL("..", import.meta.url).pathname;
+  const tracked = spawnSync("git", ["ls-files"], { cwd: root, encoding: "utf8" }).stdout.split("\n").filter(Boolean);
+  const dirs = new Set(tracked.filter((f) => f.includes("/")).map((f) => f.split("/")[0]));
+  const unlisted = [...dirs].filter((d) => d !== "source" && !excluded.has(d));
+  assert.deepEqual(unlisted, [], `add to exclude-paths in release-please-config.json: ${unlisted.join(", ")}`);
+  const stale = [...excluded].filter((d) => !dirs.has(d));
+  assert.deepEqual(stale, [], `exclude-paths names a directory that holds no tracked file: ${stale.join(", ")}`);
 });

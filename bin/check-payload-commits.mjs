@@ -14,9 +14,14 @@
  * whether to re-sync from the version number would be misled. The payload is
  * `source/`, `tokens.css` and `SHA256SUMS`.
  *
- * Two rules, both about the pull request as a whole:
+ * Three rules. The first two are about the pull request as a whole:
  *   1. A payload change needs at least one releasable commit.
  *   2. A payload file that is deleted or renamed needs a breaking commit.
+ * The third is about each commit:
+ *   3. A feat or fix commit that changes no payload file would release a
+ *      version whose payload is unchanged. Use docs, chore, ci or test.
+ *      release-please can skip a directory (`exclude-paths`) but not a root
+ *      file such as README.md, so this is what stops `fix: typo in README`.
  *
  * What it cannot see: that a `feat` should have been a `fix`, or that a value
  * removed from inside a file is a removal. `/release` reviews the version.
@@ -47,13 +52,20 @@ export function isReleasable(commit) {
 
 /**
  * @param {{ status: string, paths: string[] }[]} files from `git diff --name-status`, `paths` being the old path then the new one for a rename
- * @param {{ subject: string, body: string }[]} commits the non-merge commits of the pull request
+ * @param {{ subject: string, body: string, sha?: string, files?: { status: string, paths: string[] }[] }[]} commits the non-merge commits of the pull request; `files` is what each one changes, and rule 3 only applies to a commit that has it
  * @returns {string[]} the problems, empty when the pull request is fine
  */
 export function payloadProblems(files, commits) {
-  const touched = files.filter((f) => f.paths.some(isPayload));
-  if (!touched.length) return [];
   const problems = [];
+  for (const c of commits) {
+    if (c.files && isReleasable(c) && !c.files.some((f) => f.paths.some(isPayload))) {
+      problems.push(
+        `${c.sha ? `${c.sha.slice(0, 7)} ` : ""}"${c.subject}" is feat or fix but changes no payload file, so the release workflow would release a version whose payload is unchanged. Use docs, chore, ci or test.`,
+      );
+    }
+  }
+  const touched = files.filter((f) => f.paths.some(isPayload));
+  if (!touched.length) return problems;
   if (!commits.some(isReleasable)) {
     const named = touched.slice(0, 3).map((f) => f.paths.at(-1)).join(", ");
     problems.push(
@@ -67,6 +79,11 @@ export function payloadProblems(files, commits) {
     );
   }
   return problems;
+}
+
+/** Escapes text for the data part of a workflow command: `%`, CR and LF are decoded there. */
+export function escapeCommandData(text) {
+  return String(text).replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
 }
 
 /** Parses `git diff --name-status` output. */
@@ -107,8 +124,15 @@ function main() {
   }
   const files = parseNameStatus(git("diff", "--name-status", "-M", `${base}...${head}`));
   const commits = parseCommits(git("log", "--no-merges", "--format=%x1e%s%x1f%b", `${base}..${head}`));
+  const shas = git("rev-list", "--no-merges", `${base}..${head}`).split("\n").filter(Boolean);
+  // rev-list and log list the same commits in the same order.
+  commits.forEach((c, i) => {
+    c.sha = shas[i];
+    c.files = parseNameStatus(git("diff-tree", "-r", "-M", "--name-status", "--no-commit-id", c.sha));
+  });
   const problems = payloadProblems(files, commits);
-  for (const problem of problems) console.error(`::error title=Payload commit type::${problem}`);
+  // A commit subject is untrusted text, so it must not be able to start a workflow command.
+  for (const problem of problems) console.error(`::error title=Payload commit type::${escapeCommandData(problem)}`);
   console.log(
     `${files.filter((f) => f.paths.some(isPayload)).length} payload file(s) changed in ${commits.length} commit(s): ${problems.length ? "failing" : "ok"}`,
   );

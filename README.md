@@ -149,7 +149,10 @@ Releases are semver tags, and the tag is what a consumer records.
 The release workflow reads the commit type, so it is the bump. A change to the
 payload (`source/`, `tokens.css`) must be `feat` or `fix`: a `docs:` or `chore:`
 commit is never released, so a brand-book fix is `fix(docs):`. Changes outside
-the payload (`ci`, `chore`, `test`, the repository's own docs) are not released.
+the payload (`ci`, `chore`, `test`, the repository's own docs) are not released:
+release-please skips a commit that only touches a directory outside the payload,
+and CI fails a pull request with a `feat` or `fix` commit that changes no payload
+file, because it would release a version whose payload is unchanged.
 
 The public API is:
 
