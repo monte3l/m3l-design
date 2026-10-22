@@ -34,9 +34,15 @@ describe("configProblems", () => {
         parity: ["p.mjs"],
         nav: [{ href: "index.html", label: "Docs" }],
         manifest: "package.json",
+        brand: true,
       }),
       [],
     );
+    assert.deepEqual(problemsOf({ brand: false }), []);
+  });
+
+  it("rejects a brand that is not a boolean", () => {
+    one({ brand: "yes" }, /"brand" must be true or false/);
   });
 
   it("rejects a config that is not an object", () => {
