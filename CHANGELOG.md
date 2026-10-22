@@ -6,6 +6,13 @@ All notable changes to m3l-design. The format follows
 the release workflow from the Conventional Commits since the last release,
 grouped as Added, Changed and Fixed; the sections before them are as written.
 
+## [1.2.0](https://github.com/monte3l/m3l-design/compare/v1.1.0...v1.2.0) (2026-10-22)
+
+
+### Added
+
+* **brand:** add the MONTE3L logo and asset pack ([4b6da7a](https://github.com/monte3l/m3l-design/commit/4b6da7a063f336fbef731f9a29afa48dd208c244))
+
 ## [1.1.0] - 2026-10-20
 
 ### Added
