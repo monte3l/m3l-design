@@ -6,6 +6,7 @@ description: >-
   command, and present 3-5 fix options. Use for /triaging-ci, "why did CI fail",
   "CI is failing", "the build is red", "find the root cause of a failing
   build", "debug the CI run", or a specific run ID/URL. GitHub stance: gh CLI.
+allowed-tools: Bash(gh run list *) Bash(gh run view *) Bash(git rev-parse *)
 ---
 
 Diagnose why a GitHub Actions CI run failed by fetching its logs via `gh` and
@@ -19,10 +20,13 @@ apply fixes — it ends with options, not actions.
 
 If the user provided an explicit run ID or URL, extract the numeric ID from it.
 
-Otherwise, find the most recent failed run on the current branch:
+Otherwise, find the most recent failed run on the current branch. Resolve the
+branch first, then pass it as a literal (a `$(...)` inside the `gh` command
+would not match the pre-approved `allowed-tools` pattern):
 
 ```bash
-gh run list --branch $(git rev-parse --abbrev-ref HEAD) \
+git rev-parse --abbrev-ref HEAD
+gh run list --branch <branch> \
   --limit 5 \
   --json databaseId,status,conclusion,name,createdAt
 ```
