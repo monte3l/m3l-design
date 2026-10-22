@@ -9,6 +9,7 @@ export default {
   siteUrl: "https://design.monte3l.com",
   designDir: ".",
   marker: "design/README.md",
+  brand: true,
   navGroups: ["Start", "Foundations", "Components", "Docs kit", "Project"],
   nav: [
     { href: "index.html", label: "Docs" },

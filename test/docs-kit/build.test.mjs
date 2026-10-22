@@ -45,21 +45,30 @@ const git = (root, ...args) =>
     encoding: "utf8",
   });
 
-/** A clean repository: `--check` exits 0 on it. */
-async function fixture() {
+const BRAND_FILES = [
+  "favicon/favicon.ico",
+  "favicon/favicon.svg",
+  "favicon/apple-touch-icon.png",
+  "logo/symbol-light.svg",
+  "logo/symbol-dark.svg",
+];
+
+/** A clean repository: `--check` exits 0 on it. `brand` turns on the brand option and adds its files. */
+async function fixture({ brand = false, brandFiles = brand } = {}) {
   const root = await mkdtemp(path.join(tmpdir(), "m3l-docs-e2e-"));
   roots.push(root);
   const design = {
     "tokens.css": ":root { --color-text: #111; }\n",
     "source/components/bundle.css": ".m3l-badge { color: var(--color-text); }\n",
     "source/fonts/x.woff2": "not really a font",
+    ...(brandFiles ? Object.fromEntries(BRAND_FILES.map((rel) => [`source/brand/${rel}`, `brand ${rel}`])) : {}),
   };
   for (const [rel, text] of Object.entries(design)) await put(root, `design/${rel}`, text);
   await put(root, "design/SHA256SUMS", Object.entries(design).map(([rel, text]) => `${sha(text)}  ${rel}\n`).join(""));
   await put(root, "design/README.md", "# Adoption\n\n- **Version copied:** `v1.0.0`\n");
   await put(root, "README.md", "# Fixture\n\nPlain **bold** text and a [file](design/tokens.css).\n");
   await put(root, "package.json", JSON.stringify({ name: "fixture", homepage: SITE_URL }));
-  await put(root, "docs.config.mjs", CONFIG);
+  await put(root, "docs.config.mjs", brand ? CONFIG.replace("  manifest:", "  brand: true,\n  manifest:") : CONFIG);
   assert.equal(git(root, "init", "-q").status, 0);
   assert.equal(git(root, "add", "-A").status, 0);
   return root;
@@ -90,6 +99,42 @@ describe("build.mjs --check end to end", () => {
     assert.match(html, /<h1 id="fixture"/);
     assert.match(await readFile(path.join(root, "_site/_headers"), "utf8"), /Content-Security-Policy/);
     await readFile(path.join(root, "_site/assets/source/fonts/x.woff2"));
+  });
+
+  it("adds no favicon or logo unless brand is true", async () => {
+    const root = await fixture();
+    assert.equal(spawnSync(process.execPath, [BUILD, "--out", "_site"], { cwd: root, encoding: "utf8" }).status, 0);
+    const html = await readFile(path.join(root, "_site/index.html"), "utf8");
+    assert.doesNotMatch(html, /rel="icon"|m3l-site-brand/);
+  });
+
+  it("adds the favicon links, the header logo and the files when brand is true", async () => {
+    const root = await fixture({ brand: true });
+    const result = spawnSync(process.execPath, [BUILD, "--out", "_site"], { cwd: root, encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    const html = await readFile(path.join(root, "_site/index.html"), "utf8");
+    const ico = html.indexOf('rel="icon" href="assets/brand/favicon/favicon.ico" sizes="any"');
+    const svg = html.indexOf('rel="icon" href="assets/brand/favicon/favicon.svg" type="image/svg+xml"');
+    assert.ok(ico !== -1 && svg > ico, "the ICO link comes first, then the SVG");
+    assert.match(html, /rel="apple-touch-icon" href="assets\/brand\/favicon\/apple-touch-icon\.png"/);
+    assert.match(html, /<a class="m3l-site-brand" href="index\.html"><img [^>]*symbol-light\.svg" alt="MONTE3L"[^>]*><img [^>]*symbol-dark\.svg" alt="MONTE3L"/);
+    for (const rel of BRAND_FILES) await readFile(path.join(root, "_site/assets/brand", rel));
+    const notFound = await readFile(path.join(root, "_site/404.html"), "utf8");
+    assert.match(notFound, /href="\/assets\/brand\/favicon\/favicon\.svg"/);
+    assert.match(notFound, /<a class="m3l-site-brand" href="\/index\.html">/);
+    assert.match(await readFile(path.join(root, "_site/_headers"), "utf8"), /img-src 'self';/);
+  });
+
+  it("passes --check when brand is true and every brand file is present", async () => {
+    const result = check(await fixture({ brand: true }));
+    assert.equal(result.status, 0, result.stderr);
+  });
+
+  it("fails when brand is true but the design directory has no brand files", async () => {
+    const root = await fixture({ brand: true, brandFiles: false });
+    assertFails(check(root), `"brand" is true but design/source/brand/favicon/favicon.ico is missing`);
+    const out = spawnSync(process.execPath, [BUILD, "--out", "_site"], { cwd: root, encoding: "utf8" });
+    assertFails(out, `"brand" is true`, 2);
   });
 
   it("fails on tracked Markdown that is neither a page nor excluded in the config", async () => {
