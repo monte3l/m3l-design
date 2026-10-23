@@ -13,6 +13,10 @@
  *   node bin/build-brand.mjs --social <dir>   render one 1280x640 card per repository, outside the repo, with each card line from the .github blueprint's projects.json
  *   node bin/build-brand.mjs --digest         print the digest of the rasters' inputs; writes nothing
  *
+ * It also writes the two personal avatars to `avatars/`, outside the payload:
+ * the same contour peaks for `enri3l` and `giulmonte`, as SVG and as 1024 and
+ * 500 px PNGs.
+ *
  * The SVG, JSON and manifest files are plain text and are compared byte for
  * byte under `--check`. The PNG and ICO files are rendered by headless Chrome
  * and are not reproducible byte for byte, so `--check` confirms they exist and
@@ -37,6 +41,7 @@ import {
   resolveTheme,
 } from "../source/lib/design-tokens.mjs";
 import {
+  avatarSvg,
   cardSvg,
   lockupSvg,
   symbolBody,
@@ -46,6 +51,11 @@ import {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = path.join(root, "source/brand");
+const avatarDir = path.join(root, "avatars");
+
+/** Where a generated file goes: a key starting `@avatars/` is in `avatars/`, any other is in `source/brand/`. */
+const target = (rel) => (rel.startsWith("@avatars/") ? path.join(avatarDir, rel.slice("@avatars/".length)) : path.join(outDir, rel));
+const shown = (rel) => path.relative(root, target(rel));
 const DEFAULT_STAMP = path.join(root, "bin/brand-rasters.sha256");
 
 // REUSE-IgnoreStart -- the banner below is the SPDX tag of the generated files, not this file's own
@@ -85,6 +95,10 @@ async function loadColours() {
       secondary: get("color-text-secondary"),
       wine: get("color-accent-default"),
       ground: get("color-surface-default"),
+      wine700: get("color-wine-700"),
+      wine500: get("color-wine-500"),
+      wine300: get("color-wine-300"),
+      wine100: get("color-wine-100"),
     };
   };
   return { light: pick("light"), dark: pick("dark") };
@@ -133,6 +147,16 @@ function textFiles({ light, dark }) {
       null,
       2,
     )}\n`,
+  );
+
+  // The two personal avatars: the same contour peaks with the palettes swapped, so neither is the default.
+  files.set(
+    "@avatars/enri3l.svg",
+    SPDX + avatarSvg({ id: "m3l-enri3l", title: "enri3l", ground: light.ink, bands: [light.wine700, light.wine500, light.wine300, light.ground] }),
+  );
+  files.set(
+    "@avatars/giulmonte.svg",
+    SPDX + avatarSvg({ id: "m3l-giulmonte", title: "giulmonte", ground: light.wine100, bands: [light.wine300, light.wine500, light.wine700, light.ink] }),
   );
 
   for (const [file, width, height] of [
@@ -263,6 +287,9 @@ function rasterJobs(colours, texts, fontCss = "") {
     ]),
     ["social/social-preview.png", { body: strip(texts.get("social/social-preview.svg")), width: 1280, height: 640, fontCss }],
     ["social/og-image.png", { body: strip(texts.get("social/og-image.svg")), width: 1200, height: 630, fontCss }],
+    ...["enri3l", "giulmonte"].flatMap((name) =>
+      [1024, 500].map((size) => [`@avatars/${name}-${size}.png`, { body: strip(texts.get(`@avatars/${name}.svg`)), width: size, height: size }]),
+    ),
   ];
 }
 
@@ -281,9 +308,9 @@ async function writeAll(colours, stampFile) {
   const chrome = findChrome();
   const texts = textFiles(colours);
   for (const [rel, content] of texts) {
-    await mkdir(path.dirname(path.join(outDir, rel)), { recursive: true });
-    await writeFile(path.join(outDir, rel), content, "utf8");
-    console.log(`wrote source/brand/${rel}`);
+    await mkdir(path.dirname(target(rel)), { recursive: true });
+    await writeFile(target(rel), content, "utf8");
+    console.log(`wrote ${shown(rel)}`);
   }
   const scratch = await mkdtemp(path.join(tmpdir(), "m3l-ico-"));
   try {
@@ -294,8 +321,8 @@ async function writeAll(colours, stampFile) {
         await renderPng(chrome, { ...job, out });
         frames.push({ size: job.width, data: await readFile(out) });
       } else {
-        await renderPng(chrome, { ...job, out: path.join(outDir, rel) });
-        console.log(`wrote source/brand/${rel}`);
+        await renderPng(chrome, { ...job, out: target(rel) });
+        console.log(`wrote ${shown(rel)}`);
       }
     }
     await writeFile(path.join(outDir, "favicon/favicon.ico"), packIco(frames));
@@ -313,12 +340,12 @@ async function check(colours, stampFile) {
   for (const [rel, content] of texts) {
     let existing = null;
     try {
-      existing = await readFile(path.join(outDir, rel), "utf8");
+      existing = await readFile(target(rel), "utf8");
     } catch (cause) {
       if (cause.code !== "ENOENT") throw cause;
     }
     if (existing !== content) {
-      console.error(`fail  source/brand/${rel} is out of date -- run \`node bin/build-brand.mjs\` and commit the result`);
+      console.error(`fail  ${shown(rel)} is out of date -- run \`node bin/build-brand.mjs\` and commit the result`);
       current = false;
     }
   }
@@ -327,8 +354,8 @@ async function check(colours, stampFile) {
     ...rasterJobs(colours, texts).map(([rel]) => rel).filter((rel) => !rel.startsWith("ico-frame")),
   ];
   for (const rel of rasters) {
-    if (!existsSync(path.join(outDir, rel))) {
-      console.error(`fail  source/brand/${rel} is missing -- run \`node bin/build-brand.mjs\``);
+    if (!existsSync(target(rel))) {
+      console.error(`fail  ${shown(rel)} is missing -- run \`node bin/build-brand.mjs\``);
       current = false;
     }
   }

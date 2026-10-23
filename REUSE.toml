@@ -50,6 +50,8 @@ path = [
   "source/brand/favicon/**",
   "source/brand/github/**",
   "source/brand/social/**",
+  "avatars/*.svg",
+  "avatars/*.png",
   "bin/lib/brand-glyphs.mjs",
 ]
 precedence = "override"

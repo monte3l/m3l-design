@@ -42,6 +42,7 @@ export default {
     { glob: ".groundwork/**", reason: "m3l-groundwork adoption and customization reports, not reader-facing" },
     { glob: "AUTHORS.md", reason: "credits file; source/AUTHORS.md is its payload copy" },
     { glob: "source/AUTHORS.md", reason: "credits file that travels with the payload" },
+    { glob: "avatars/README.md", reason: "the founders' personal GitHub avatars, which are not part of the design system's docs" },
     { glob: "source/brand/LICENSE.md", reason: "licence notice that travels with the brand files; linked from the brand assets page on GitHub" },
     { glob: "source/fonts/FONTLOG.md", reason: "font provenance, linked from the brand book on GitHub" },
   ],
