@@ -14,6 +14,9 @@ Node 24 (`.node-version`), no `package.json`, nothing to install.
 | --- | --- |
 | `node bin/build-design-tokens.mjs` | Regenerate `tokens.css` and `SHA256SUMS` |
 | `node bin/build-design-tokens.mjs --check` | Fail if either is stale. CI runs this |
+| `node bin/build-brand.mjs` | Regenerate the brand pack in `source/brand/`: SVGs from `bin/lib/brand-geometry.mjs`, PNGs and the ICO through headless Chrome (`CHROME` overrides the path), and `bin/brand-rasters.sha256`. Never run it just to look: the PNG bytes change, which changes `SHA256SUMS` and the payload |
+| `node bin/build-brand.mjs --check` | Fail if an SVG or the manifest is stale, a raster is missing, or the rasters' inputs no longer match `bin/brand-rasters.sha256`. CI runs it through `node --test` |
+| `node bin/build-brand.mjs --social <dir>` | Render one 1280x640 card per repository into `<dir>`, outside the repo, for upload in each repository's settings |
 | `node --test` | Resolver parity tests, credit-file checks and the docs kit tests |
 | `node source/docs-kit/build.mjs --check` | Build this repository's docs site and gate it: links, page coverage, `SHA256SUMS`, local CSS, parity with the payload. CI runs this |
 | `node source/docs-kit/build.mjs --out _site` | Write the docs site |

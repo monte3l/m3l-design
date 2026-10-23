@@ -71,8 +71,8 @@ List `favicon.ico` first with `sizes="any"`, then the SVG, as web.dev recommends
 
 ```sh
 node bin/build-brand.mjs            # write every file; needs Chrome or Chromium for the PNGs and the ICO
-node bin/build-brand.mjs --check    # fail if an SVG or the manifest is stale, or a raster is missing
+node bin/build-brand.mjs --check    # fail if an SVG or the manifest is stale, a raster is missing, or the rasters' inputs changed
 node bin/build-design-tokens.mjs    # refresh SHA256SUMS, which covers this folder
 ```
 
-Set `CHROME` to a browser binary if none is found. The PNGs and the ICO are pinned by `SHA256SUMS` and are not reproducible byte for byte.
+Set `CHROME` to a browser binary if none is found. The PNGs and the ICO are not reproducible byte for byte, so `--check` compares a digest of everything fed to Chrome with `bin/brand-rasters.sha256`, which a full build rewrites. A change to the icon layout then fails `--check` until the rasters are rebuilt. `SHA256SUMS` pins the files themselves.

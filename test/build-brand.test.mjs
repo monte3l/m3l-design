@@ -9,8 +9,9 @@
  * Run with `node --test`.
  */
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -70,6 +71,34 @@ describe("brand pack", () => {
     const count = ico.readUInt16LE(4);
     const sizes = Array.from({ length: count }, (_, i) => ico.readUInt8(6 + i * 16));
     assert.deepEqual(sizes, [16, 32, 48]);
+  });
+
+  describe("raster stamp", () => {
+    const build = path.join(root, "bin/build-brand.mjs");
+    const run = (stamp) => spawnSync(process.execPath, [build, "--check", "--stamp", stamp], { encoding: "utf8" });
+
+    it("fails when the digest differs from the rasters' inputs", () => {
+      const dir = mkdtempSync(path.join(tmpdir(), "m3l-stamp-"));
+      try {
+        writeFileSync(path.join(dir, "stamp"), `${"0".repeat(64)}\n`);
+        const result = run(path.join(dir, "stamp"));
+        assert.equal(result.status, 1, result.stdout + result.stderr);
+        assert.match(result.stderr, /PNG and ICO files are stale \(a different /);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it("fails when the stamp file is missing", () => {
+      const result = run(path.join(tmpdir(), "m3l-no-such-stamp"));
+      assert.equal(result.status, 1, result.stdout + result.stderr);
+      assert.match(result.stderr, /stale \(no /);
+    });
+
+    it("passes with the committed stamp", () => {
+      const result = run(path.join(root, "bin/brand-rasters.sha256"));
+      assert.equal(result.status, 0, result.stdout + result.stderr);
+    });
   });
 
   it("is up to date with the build", () => {
