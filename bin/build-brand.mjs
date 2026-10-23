@@ -10,7 +10,7 @@
  *
  *   node bin/build-brand.mjs                  write every file, SVG and raster
  *   node bin/build-brand.mjs --check          fail if a text file is stale or a raster is missing
- *   node bin/build-brand.mjs --social <dir>   render one 1280x640 card per repository, outside the repo
+ *   node bin/build-brand.mjs --social <dir>   render one 1280x640 card per repository, outside the repo, with each card line from the .github blueprint's projects.json
  *   node bin/build-brand.mjs --digest         print the digest of the rasters' inputs; writes nothing
  *
  * The SVG, JSON and manifest files are plain text and are compared byte for
@@ -58,7 +58,8 @@ const SPDX = `<!--
 // REUSE-IgnoreEnd
 
 const FONT_STACK = `'Atkinson Hyperlegible Next', system-ui, sans-serif`;
-const ORG_TAGLINE = "Open-source tooling for TypeScript projects and Claude Code.";
+// The organization description in the .github repository's blueprint/org.json, without a final dot.
+const ORG_TAGLINE = "Open-source tooling for TypeScript projects and Claude Code";
 
 class BrandError extends Error {
   constructor(message, options) {
@@ -347,21 +348,6 @@ async function check(colours, stampFile) {
   return current;
 }
 
-/** Description of a repository from `gh`, or the org tagline when it has none or `gh` cannot say. */
-function describeRepo(repo) {
-  try {
-    const text = execFileSync("gh", ["repo", "view", `monte3l/${repo}`, "--json", "description", "-q", ".description"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-      timeout: 30_000,
-    }).trim();
-    return text || ORG_TAGLINE;
-  } catch (cause) {
-    console.warn(`warn  could not read the description of monte3l/${repo} (${cause.message.split("\n")[0]}); using the org tagline`);
-    return ORG_TAGLINE;
-  }
-}
-
 async function social(colours, dir, projectsFile) {
   let projects;
   try {
@@ -369,18 +355,21 @@ async function social(colours, dir, projectsFile) {
   } catch (cause) {
     throw new BrandError(`cannot read ${projectsFile}: ${cause.message}`);
   }
-  if (!Array.isArray(projects) || projects.some((p) => typeof p?.repo !== "string" || !/^[\w.-]+$/.test(p.repo) || p.repo.includes(".."))) {
-    throw new BrandError(`${projectsFile} must be an array of { "repo": "<name>" } with plain repository names`);
+  if (
+    !Array.isArray(projects) ||
+    projects.some((p) => typeof p?.repo !== "string" || !/^[\w.-]+$/.test(p.repo) || p.repo.includes("..") || typeof p.card !== "string" || p.card === "")
+  ) {
+    throw new BrandError(`${projectsFile} must be an array of { "repo": "<name>", "card": "<card line>" } with plain repository names`);
   }
   const chrome = findChrome();
   const fontCss = await fonts();
   await mkdir(dir, { recursive: true });
-  for (const { repo } of projects) {
+  for (const { repo, card } of projects) {
     const svg = cardSvg({
       width: 1280,
       height: 640,
       name: repo,
-      tagline: describeRepo(repo),
+      tagline: card,
       c: colours.light,
       id: "m3l-card",
       fontFamily: FONT_STACK,
