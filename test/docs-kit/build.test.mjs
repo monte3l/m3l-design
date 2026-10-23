@@ -101,6 +101,24 @@ describe("build.mjs --check end to end", () => {
     await readFile(path.join(root, "_site/assets/source/fonts/x.woff2"));
   });
 
+  it("shows the site name once when the page title is the site name, and after the page title otherwise", async () => {
+    const root = await fixture();
+    await put(root, "README.md", "# Fixture\n\nHome.\n\n[more](docs/more.md)\n");
+    await put(root, "docs/more.md", "# More\n\nA second page.\n");
+    await put(
+      root,
+      "docs.config.mjs",
+      CONFIG.replace(
+        `pages: [{ src: "README.md", out: "index.html", group: "Start", label: "Home" }]`,
+        `pages: [{ src: "README.md", out: "index.html", group: "Start", label: "Home" }, { src: "docs/more.md", out: "more.html", group: "Start", label: "More" }]`,
+      ),
+    );
+    git(root, "add", "-A");
+    assert.equal(spawnSync(process.execPath, [BUILD, "--out", "_site"], { cwd: root, encoding: "utf8" }).status, 0);
+    assert.match(await readFile(path.join(root, "_site/index.html"), "utf8"), /<title>Fixture<\/title>/);
+    assert.match(await readFile(path.join(root, "_site/more.html"), "utf8"), /<title>More · Fixture<\/title>/);
+  });
+
   it("adds no favicon or logo unless brand is true", async () => {
     const root = await fixture();
     assert.equal(spawnSync(process.execPath, [BUILD, "--out", "_site"], { cwd: root, encoding: "utf8" }).status, 0);
