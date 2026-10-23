@@ -6,6 +6,13 @@ All notable changes to m3l-design. The format follows
 the release workflow from the Conventional Commits since the last release,
 grouped as Added, Changed and Fixed; the sections before them are as written.
 
+## [1.3.1](https://github.com/monte3l/m3l-design/compare/v1.3.0...v1.3.1) (2026-10-23)
+
+
+### Fixed
+
+* **brand:** drop the final dot from the org card line, read card lines from the blueprint ([9746106](https://github.com/monte3l/m3l-design/commit/974610643442efcbee182d48c27ce19e3e7fa668))
+
 ## [1.3.0](https://github.com/monte3l/m3l-design/compare/v1.2.0...v1.3.0) (2026-10-23)
 
 
