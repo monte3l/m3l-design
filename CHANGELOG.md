@@ -6,6 +6,20 @@ All notable changes to m3l-design. The format follows
 the release workflow from the Conventional Commits since the last release,
 grouped as Added, Changed and Fixed; the sections before them are as written.
 
+## [1.3.0](https://github.com/monte3l/m3l-design/compare/v1.2.0...v1.3.0) (2026-10-23)
+
+
+### Added
+
+* **brand:** replace the E and 3 mark with two equal peaks ([8858999](https://github.com/monte3l/m3l-design/commit/885899951b1ff12f246d66c839bda85084b9f7bf))
+* **docs-kit:** add a brand option for the favicon and header logo ([4b96328](https://github.com/monte3l/m3l-design/commit/4b96328e5c1c9ad8863b1fa56aebc1c773de5513))
+
+
+### Fixed
+
+* **brand:** describe the raster check in the brand README ([2fcddb1](https://github.com/monte3l/m3l-design/commit/2fcddb1a8a56cba03771d353f04776905160f95b))
+* **docs-kit:** serve favicon.ico at the site root when brand is true ([50d5bf2](https://github.com/monte3l/m3l-design/commit/50d5bf2457f01aa93602a7fc194494c877d3ef79))
+
 ## [1.2.0](https://github.com/monte3l/m3l-design/compare/v1.1.0...v1.2.0) (2026-10-22)
 
 
