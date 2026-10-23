@@ -406,6 +406,10 @@ async function writeSite(config, allPages, outDir, rendered) {
     await mkdir(path.dirname(target), { recursive: true });
     await writeFile(target, renderPage(config, allPages, localCss, page, rendered), "utf8");
   }
+  // Clients that ignore <link rel="icon"> (feed readers, crawlers) ask for /favicon.ico at the root.
+  if (config.brand) {
+    await copyFile(path.join(config.root, config.designDir, "source/brand/favicon/favicon.ico"), path.join(outDir, "favicon.ico"));
+  }
   await writeFile(path.join(outDir, NOT_FOUND_PAGE.out), renderNotFoundPage(config, allPages, localCss), "utf8");
   const htmlPages = [...rendered.values()].map((page) => page.html);
   const headersText = buildHeadersFile({
