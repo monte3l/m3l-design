@@ -126,6 +126,7 @@ adopting a release is a plain copy.
 | `SHA256SUMS` | The hash of every file in `source/` and of `tokens.css` |
 | `bin/` | `sync-design.sh`, `package-release.sh` and `build-design-tokens.mjs` |
 | `docs.config.mjs`, `scripts/` | This repository's own docs site: its config, the token and gallery page generators, and the doc-versus-payload parity check |
+| `avatars/` | The two founders' GitHub avatars as SVG and PNG, made by `bin/build-brand.mjs`. Not part of a release's payload |
 | `artifact/` | The preview pages for the claude.ai design-system artifact. Not part of a release's payload |
 
 ## Requirements

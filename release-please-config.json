@@ -12,7 +12,7 @@
       "include-component-in-tag": false,
       "draft": true,
       "force-tag-creation": true,
-      "exclude-paths": [".claude", ".github", ".groundwork", "artifact", "bin", "design", "docs", "LICENSES", "scripts", "test"],
+      "exclude-paths": [".claude", ".github", ".groundwork", "artifact", "avatars", "bin", "design", "docs", "LICENSES", "scripts", "test"],
       "extra-files": [
         { "type": "generic", "path": "README.md" },
         { "type": "generic", "path": "design/README.md" }

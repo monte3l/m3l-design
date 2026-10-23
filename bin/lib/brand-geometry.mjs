@@ -68,6 +68,27 @@ export function symbolBody({ leftAttr, rightAttr, scale = 1 }) {
   return `<g transform="${place}"><path ${leftAttr} d="${peakPath(left)}"/><path ${rightAttr} d="${peakPath(right)}"/></g>`;
 }
 
+/**
+ * A personal avatar: the peak repeated inward like the contour lines of a map,
+ * on a square ground, centred for the circle GitHub crops it to. `bands` are the
+ * four fills from the outer peak to the summit. The peaks are centred on the
+ * canvas, a little above the middle of their bounding box so the triangle does
+ * not look as if it is sinking.
+ */
+export function avatarSvg({ id, title, ground, bands }) {
+  const scales = [1.45, 1.12, 0.79, 0.46];
+  const d = peakPath(500);
+  const peaks = scales
+    .map((scale, i) => `<path fill="${bands[i]}" transform="translate(${round(500 - 500 * scale)} ${round(455 - 495 * scale)}) scale(${scale})" d="${d}"/>`)
+    .join("\n");
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" role="img" aria-labelledby="${id}-t">
+<title id="${id}-t">${title}</title>
+<rect width="1000" height="1000" fill="${ground}"/>
+${peaks}
+</svg>
+`;
+}
+
 /** A complete symbol file. `box` defaults to the square 1000 canvas. */
 export function symbolSvg({ id = "m3l", title = "MONTE3L", style = "", box = "0 0 1000 1000", ...rest }) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${box}" role="img" aria-labelledby="${id}-t">

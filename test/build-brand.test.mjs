@@ -101,6 +101,27 @@ describe("brand pack", () => {
     });
   });
 
+  describe("avatars", () => {
+    const avatars = path.join(root, "avatars");
+    for (const name of ["enri3l", "giulmonte"]) {
+      it(`${name} is an accessible SVG with a license tag, and has both PNG sizes`, () => {
+        const text = readFileSync(path.join(avatars, `${name}.svg`), "utf8");
+        assert.ok(text.includes(`SPDX-License-${"Identifier"}: LicenseRef-MONTE3L-Brand`));
+        assert.match(text, new RegExp(`<title id="[\\w-]+">${name}</title>`));
+        for (const size of [1024, 500]) {
+          const png = readFileSync(path.join(avatars, `${name}-${size}.png`));
+          assert.equal(png.readUInt32BE(16), size, `${name}-${size}.png width`);
+          assert.equal(png.readUInt32BE(20), size, `${name}-${size}.png height`);
+        }
+      });
+    }
+
+    it("have swapped palettes, so neither is the default", () => {
+      const grounds = ["enri3l", "giulmonte"].map((name) => readFileSync(path.join(avatars, `${name}.svg`), "utf8").match(/<rect [^>]*fill="(#[0-9a-f]{6})"/)[1]);
+      assert.notEqual(grounds[0], grounds[1]);
+    });
+  });
+
   it("is up to date with the build", () => {
     execFileSync(process.execPath, [path.join(root, "bin/build-brand.mjs"), "--check"], { stdio: "pipe" });
   });
