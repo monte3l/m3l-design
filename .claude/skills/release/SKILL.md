@@ -59,7 +59,7 @@ Never regenerate `tokens.css` or `SHA256SUMS` to make `--check` pass. If it fail
 
 ## 5. Rehearse against each consumer
 
-The consumers are `m3l-groundwork`, `m3l-prompt-optimizer` and `m3l-output-governor`. The release pull request changes no payload file, so its head commit carries the payload that will be released. In a scratch copy of each consumer (never the working clone):
+The consumers are `m3l-groundwork`, `m3l-prompt-optimizer`, `m3l-output-governor`, `m3l-plugins` and `.github`, the list under `consumers` in `monte3l/.github`'s `blueprint/design-system.json`. The release pull request changes no payload file, so its head commit carries the payload that will be released. In a scratch copy of each consumer (never the working clone):
 
 ```sh
 bin/sync-design.sh --dry-run --from <pull request head commit> vX.Y.Z <scratch-consumer>
@@ -69,6 +69,6 @@ Summarise what would change per consumer. Flag anything that looks like a breaki
 
 ## 6. Stop
 
-Report the pull request URL, the proposed version, and the results of steps 2 to 5. Then say the merge is theirs: merging with a merge commit publishes an immutable release. If the user asks for it afterwards, `gh release verify vX.Y.Z` checks the attestation.
+Report the pull request URL, the proposed version, and the results of steps 2 to 5. Then say the merge is theirs: merging with a merge commit publishes an immutable release. Publishing also makes `monte3l/.github` open a re-sync pull request in each consumer. If the user asks for it afterwards, `gh release verify vX.Y.Z` checks the attestation.
 
 Do not merge the pull request, and do not run `gh release edit --draft=false` or `gh release create`. The release guard hook asks before either.
