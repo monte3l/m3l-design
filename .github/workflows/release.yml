@@ -95,7 +95,9 @@ jobs:
     uses: monte3l/.github/.github/workflows/release-finalize.yml@ee47e005c774a2efae036a7b3201910e4eaf9e6f # release-baseline
     with:
       tag: ${{ needs.prepare.outputs.tag_name }}
-      notify: "[]"
+      # Opens a re-sync pull request in every repository that vendors this design
+      # system (design-resync.yml in monte3l/.github).
+      notify: '[".github"]'
     secrets:
       RELEASE_APP_CLIENT_ID: ${{ secrets.RELEASE_APP_CLIENT_ID }}
       RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}

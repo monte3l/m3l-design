@@ -210,6 +210,9 @@ Releases are automatic and need no command. For maintainers:
 4. Merge it with a merge commit. The workflow builds the assets with
    `bin/package-release.sh`, attaches them to a draft, attests them and
    publishes. `gh release verify vX.Y.Z` checks the result.
+5. The workflow then tells `monte3l/.github`, whose `design-resync.yml` opens a
+   re-sync pull request in each repository that vendors the system. Read the
+   release notes and the checks on each before merging it.
 
 > [!WARNING]
 > Publishing makes the tag permanent. The release stays a draft until its three
