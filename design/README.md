@@ -6,7 +6,7 @@ release payload, its docs site (design.monte3l.com) builds straight from it, and
 it follows the markdown rules.
 
 - **Source:** [github.com/monte3l/m3l-design](https://github.com/monte3l/m3l-design)
-- **Version adopted:** `v1.3.0` <!-- x-release-please-version -->
+- **Version adopted:** `v1.3.1` <!-- x-release-please-version -->
 - **Tier:** source (builds from the repository root payload)
 - **Credits:** Enrico Lionello (`enri3l`) and Giulia Montevecchi (`giulmonte`), for `monte3l`
 
