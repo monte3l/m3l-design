@@ -5,11 +5,13 @@
  * Geometry of the MONTE3L logo, as SVG strings. Nothing here reads a file or a
  * token: `bin/build-brand.mjs` passes the colours in, so this module is pure.
  *
- * The symbol is two tiles, an E (ink) and a 3 (wine), the 3 tipped, parted by
- * a gap. The gap and both letters are cut out of the shapes with masks, so a
- * symbol has no background colour and works on any ground. A fill is an
- * attribute string (`fill="#692746"` or `class="e"`) so the favicon can switch
- * colour with `prefers-color-scheme`, which a presentation attribute cannot.
+ * The symbol is two identical rounded peaks side by side, parted by a gap. It
+ * has no letter in it, so nothing can read as one founder's initial: the two
+ * peaks are the two people, and neither is placed or sized to lead. The left
+ * peak takes `leftAttr` and the right `rightAttr`. A fill is an attribute
+ * string (`fill="#692746"` or `class="e"`) so the favicon can switch colour
+ * with `prefers-color-scheme`, which a presentation attribute cannot. Each
+ * peak is a real path, with no stroke, so one fill is all a colour needs.
  */
 import { GLYPHS } from "./brand-glyphs.mjs";
 
@@ -17,65 +19,77 @@ import { GLYPHS } from "./brand-glyphs.mjs";
 const TRACKING = 90;
 const CAP_HEIGHT = 668;
 
-/** Two cuts of the symbol on a 1000-unit canvas. `small` is for 64 px and below. */
-const VARIANTS = {
-  large: { size: 470, eX: 325, wX: 675, rot: -7, k: 0.6, gap: 30, radius: 96 },
-  small: { size: 500, eX: 285, wX: 715, rot: -6, k: 0.72, gap: 44, radius: 100 },
-};
+/** A peak is an isosceles triangle with corners rounded to `RADIUS`, `WIDTH` wide and `HEIGHT` tall. */
+const PEAK = { width: 440, height: 470, radius: 46, base: 730, centres: [270, 730] };
 
-/** Bounding box of the large symbol: the tight crop for logos and lockups. */
-export const SYMBOL_BOX = { x: 90, y: 238, width: 847, height: 524 };
+/** Bounding box of the symbol: the tight crop for logos and lockups. */
+export const SYMBOL_BOX = { x: 50, y: 260, width: 900, height: 470 };
 
-/** Centres a glyph on the origin of its tile, optically by its own bounds. */
-function placeGlyph(char, k) {
-  const [x0, y0, x1, y1] = GLYPHS[char].bounds;
-  return `translate(${-((x0 + x1) / 2) * k} ${((y0 + y1) / 2) * k}) scale(${k} ${-k})`;
-}
-
-const tileRect = (size, radius) =>
-  `x="${-size / 2}" y="${-size / 2}" width="${size}" height="${size}" rx="${radius}"`;
+const round = (n) => Math.round(n * 100) / 100;
 
 /**
- * The defs and two groups of the symbol, without an `<svg>` wrapper, so a
- * lockup can place one inside a larger drawing. `scale` shrinks it about the
- * centre of the 1000 canvas; `id` keeps the mask ids unique within a page.
+ * A triangle with rounded corners, as the outline you get by growing the
+ * triangle by `radius` and rounding its corners: edges moved out by `radius`
+ * and a quarter-turn-sized arc around each original vertex.
  */
-export function symbolBody({ id, variant = "large", eAttr, wAttr, scale = 1 }) {
-  const v = VARIANTS[variant];
-  const place = (x, rot) =>
-    `translate(${500 + (x - 500) * scale} 500) rotate(${rot}) scale(${scale})`;
-  const everywhere = `x="-200" y="-200" width="1400" height="1400"`;
-  return `<defs>
-<mask id="${id}-e" maskUnits="userSpaceOnUse" ${everywhere}><rect ${everywhere} fill="#fff"/><g transform="${place(v.wX, v.rot)}"><rect ${tileRect(v.size + v.gap * 2, v.radius + v.gap)} fill="#000"/></g><g transform="${place(v.eX, 0)}"><path transform="${placeGlyph("E", v.k)}" d="${GLYPHS.E.d}" fill="#000"/></g></mask>
-<mask id="${id}-w" maskUnits="userSpaceOnUse" ${everywhere}><rect ${everywhere} fill="#fff"/><g transform="${place(v.wX, v.rot)}"><path transform="${placeGlyph("3", v.k)}" d="${GLYPHS["3"].d}" fill="#000"/></g></mask>
-</defs>
-<g mask="url(#${id}-e)"><g transform="${place(v.eX, 0)}"><rect ${tileRect(v.size, v.radius)} ${eAttr}/></g></g>
-<g mask="url(#${id}-w)"><g transform="${place(v.wX, v.rot)}"><rect ${tileRect(v.size, v.radius)} ${wAttr}/></g></g>`;
+function peakPath(cx) {
+  const { width, height, radius: r, base } = PEAK;
+  const vertices = [
+    [cx, base - height + r], // apex
+    [cx + width / 2 - r, base - r], // base right
+    [cx - width / 2 + r, base - r], // base left
+  ];
+  // Outward unit normal of the edge from vertices[i] to vertices[(i + 1) % 3]; the order is clockwise on screen.
+  const normal = (i) => {
+    const [x0, y0] = vertices[i];
+    const [x1, y1] = vertices[(i + 1) % 3];
+    const length = Math.hypot(x1 - x0, y1 - y0);
+    return [(y1 - y0) / length, -(x1 - x0) / length];
+  };
+  const point = ([x, y], [nx, ny]) => `${round(x + nx * r)} ${round(y + ny * r)}`;
+  let d = "";
+  for (let i = 0; i < 3; i += 1) {
+    const from = vertices[i];
+    const to = vertices[(i + 1) % 3];
+    const out = normal(i);
+    const next = normal((i + 1) % 3);
+    d += `${i === 0 ? "M" : "L"}${point(from, out)}L${point(to, out)}A${r} ${r} 0 0 1 ${point(to, next)}`;
+  }
+  return `${d}Z`;
+}
+
+/**
+ * The two peaks, without an `<svg>` wrapper, so a lockup can place them inside
+ * a larger drawing. `scale` shrinks them about the centre of the 1000 canvas.
+ */
+export function symbolBody({ leftAttr, rightAttr, scale = 1 }) {
+  const place = `translate(${round(500 - 500 * scale)} ${round(500 - 495 * scale)}) scale(${scale})`;
+  const [left, right] = PEAK.centres;
+  return `<g transform="${place}"><path ${leftAttr} d="${peakPath(left)}"/><path ${rightAttr} d="${peakPath(right)}"/></g>`;
 }
 
 /** A complete symbol file. `box` defaults to the square 1000 canvas. */
 export function symbolSvg({ id = "m3l", title = "MONTE3L", style = "", box = "0 0 1000 1000", ...rest }) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${box}" role="img" aria-labelledby="${id}-t">
 <title id="${id}-t">${title}</title>${style}
-${symbolBody({ id, ...rest })}
+${symbolBody(rest)}
 </svg>
 `;
 }
 
 /** The letters of MONTE3L as paths on a 668-unit baseline box, plus the box width. */
-export function wordmarkBody({ fill, accent }) {
+export function wordmarkBody({ fill }) {
   let x = 0;
   let body = "";
   for (const char of "MONTE3L") {
-    const colour = char === "3" ? accent : fill;
-    body += `<path ${colour} transform="translate(${x} ${CAP_HEIGHT}) scale(1 -1)" d="${GLYPHS[char].d}"/>`;
+    body += `<path ${fill} transform="translate(${x} ${CAP_HEIGHT}) scale(1 -1)" d="${GLYPHS[char].d}"/>`;
     x += GLYPHS[char].adv + TRACKING;
   }
   return { width: x - TRACKING, body };
 }
 
-export function wordmarkSvg({ id = "m3l", title = "MONTE3L", fill, accent }) {
-  const { width, body } = wordmarkBody({ fill, accent });
+export function wordmarkSvg({ id = "m3l", title = "MONTE3L", fill }) {
+  const { width, body } = wordmarkBody({ fill });
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${CAP_HEIGHT}" role="img" aria-labelledby="${id}-t">
 <title id="${id}-t">${title}</title>
 ${body}
@@ -83,16 +97,16 @@ ${body}
 `;
 }
 
-/** Symbol, a gap of 0.27 symbol heights, then the wordmark at 0.36 of the symbol's height. */
-export function lockupSvg({ id = "m3l", title = "MONTE3L", eAttr, wAttr, fill, accent }) {
+/** Symbol, a gap of 0.27 symbol heights, then the wordmark at 0.36 of the symbol's height, in one colour. */
+export function lockupSvg({ id = "m3l", title = "MONTE3L", leftAttr, rightAttr, fill }) {
   const { x, y, width, height } = SYMBOL_BOX;
   const k = (height * 0.36) / CAP_HEIGHT;
   const gap = height * 0.27;
-  const word = wordmarkBody({ fill, accent });
+  const word = wordmarkBody({ fill });
   const total = Math.round(width + gap + word.width * k);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${height}" role="img" aria-labelledby="${id}-t">
 <title id="${id}-t">${title}</title>
-<g transform="translate(${-x} ${-y})">${symbolBody({ id, eAttr, wAttr })}</g>
+<g transform="translate(${-x} ${-y})">${symbolBody({ leftAttr, rightAttr })}</g>
 <g transform="translate(${width + gap} ${(height - CAP_HEIGHT * k) / 2}) scale(${k})">${word.body}</g>
 </svg>
 `;
@@ -131,7 +145,7 @@ function wrap(text, limit, lines) {
 export function cardSvg({ width, height, name, tagline, c, id = "card", fontFamily }) {
   const size = Math.min(80, Math.floor(1120 / (0.66 * name.length)));
   const lines = wrap(tagline, 64, 2);
-  const word = wordmarkBody({ fill: `fill="${c.ink}"`, accent: `fill="${c.wine}"` });
+  const word = wordmarkBody({ fill: `fill="${c.ink}"` });
   const wk = 28 / CAP_HEIGHT;
   const text = lines
     .map((line, i) => `<text x="80" y="${height - 110 + i * 46}" font-size="32" fill="${c.secondary}">${escapeXml(line)}</text>`)
@@ -140,7 +154,7 @@ export function cardSvg({ width, height, name, tagline, c, id = "card", fontFami
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-labelledby="${id}-t">
 <title id="${id}-t">${escapeXml(name)}: ${escapeXml(tagline)}</title>
 <rect width="${width}" height="${height}" fill="${c.ground}"/>
-<g transform="translate(${width - 532} -85) scale(0.55)">${symbolBody({ id: `${id}-s`, eAttr: `fill="${c.ink}"`, wAttr: `fill="${c.wine}"` })}</g>
+<g transform="translate(${width - 560} -82) scale(0.55)">${symbolBody({ leftAttr: `fill="${c.ink}"`, rightAttr: `fill="${c.wine}"` })}</g>
 <g transform="translate(80 80) scale(${wk})">${word.body}</g>
 <g font-family="${fontFamily}">
 <text x="80" y="${nameY}" font-size="${size}" font-weight="700" letter-spacing="${(size * 0.09).toFixed(1)}" fill="${c.ink}">${escapeXml(name)}</text>
