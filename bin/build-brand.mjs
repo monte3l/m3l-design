@@ -96,23 +96,23 @@ function textFiles({ light, dark }) {
   const files = new Map();
   const themes = { light, dark, mono: { ink: "currentColor", wine: "currentColor" } };
   for (const [name, c] of Object.entries(themes)) {
-    const attrs = { eAttr: fill(c.ink), wAttr: fill(c.wine) };
-    const words = { fill: fill(c.ink), accent: fill(c.wine) };
+    const attrs = { leftAttr: fill(c.ink), rightAttr: fill(c.wine) };
+    const word = { fill: fill(c.ink) };
     files.set(`logo/symbol-${name}.svg`, SPDX + symbolSvg({ ...attrs }));
-    files.set(`logo/wordmark-${name}.svg`, SPDX + wordmarkSvg({ ...words }));
-    files.set(`logo/lockup-${name}.svg`, SPDX + lockupSvg({ ...attrs, ...words }));
+    files.set(`logo/wordmark-${name}.svg`, SPDX + wordmarkSvg({ ...word }));
+    files.set(`logo/lockup-${name}.svg`, SPDX + lockupSvg({ ...attrs, ...word }));
   }
 
   // The favicon is the only file that adapts to the viewer's theme itself.
   const style = `
-<style>.e{fill:${light.ink}}.w{fill:${light.wine}}@media (prefers-color-scheme:dark){.e{fill:${dark.ink}}.w{fill:${dark.wine}}}</style>`;
+<style>.l{fill:${light.ink}}.r{fill:${light.wine}}@media (prefers-color-scheme:dark){.l{fill:${dark.ink}}.r{fill:${dark.wine}}}</style>`;
   files.set(
     "favicon/favicon.svg",
-    SPDX + symbolSvg({ id: "m3l-favicon", variant: "small", eAttr: 'class="e"', wAttr: 'class="w"', style }),
+    SPDX + symbolSvg({ id: "m3l-favicon", leftAttr: 'class="l"', rightAttr: 'class="r"', style }),
   );
   files.set(
     "favicon/icon-monochrome.svg",
-    SPDX + symbolSvg({ id: "m3l-mono", scale: 0.8, eAttr: 'fill="#000"', wAttr: 'fill="#000"' }),
+    SPDX + symbolSvg({ id: "m3l-mono", scale: 0.76, leftAttr: 'fill="#000"', rightAttr: 'fill="#000"' }),
   );
   files.set(
     "favicon/site.webmanifest",
@@ -206,11 +206,11 @@ async function renderPng(chrome, { body, width, height, out, fontCss = "" }) {
 const strip = (svg) => svg.replace(SPDX, "").trim();
 
 /** A symbol on a solid square (or rounded square) of the accent colour, for icons and the avatar. */
-function badge({ c, dark, size, scale, variant = "large", rounded, id }) {
+function badge({ c, dark, size, scale, rounded }) {
   const radius = rounded ? size * 0.22 : 0;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
 <rect width="1000" height="1000" rx="${radius * (1000 / size)}" fill="${c.wine}"/>
-${symbolBody({ id, variant, scale, eAttr: fill(c.ground), wAttr: fill(dark.wine) })}
+${symbolBody({ scale, leftAttr: fill(c.ground), rightAttr: fill(dark.wine) })}
 </svg>`;
 }
 
@@ -246,7 +246,7 @@ function rasterJobs(colours, texts, fontCss = "") {
   const { light, dark } = colours;
   const art = (opts) => badge({ c: light, dark, ...opts });
   const sq = (size, scale, extra = {}) => ({
-    body: art({ size, scale, id: "m3l-r", ...extra }),
+    body: art({ size, scale, ...extra }),
     width: size,
     height: size,
   });
@@ -254,11 +254,11 @@ function rasterJobs(colours, texts, fontCss = "") {
     ["favicon/apple-touch-icon.png", sq(180, 0.9)],
     ["favicon/icon-192.png", sq(192, 0.84, { rounded: true })],
     ["favicon/icon-512.png", sq(512, 0.84, { rounded: true })],
-    ["favicon/icon-maskable-512.png", sq(512, 0.8)],
-    ["github/avatar.png", sq(500, 0.8)],
+    ["favicon/icon-maskable-512.png", sq(512, 0.76)],
+    ["github/avatar.png", sq(500, 0.76)],
     ...[16, 32, 48].map((size) => [
       `ico-frame-${size}`,
-      { ...sq(size, 0.88, { variant: "small", rounded: true }), temp: true },
+      { ...sq(size, 0.88, { rounded: true }), temp: true },
     ]),
     ["social/social-preview.png", { body: strip(texts.get("social/social-preview.svg")), width: 1280, height: 640, fontCss }],
     ["social/og-image.png", { body: strip(texts.get("social/og-image.svg")), width: 1200, height: 630, fontCss }],
