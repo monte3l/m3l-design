@@ -11,15 +11,20 @@
  *   node bin/build-brand.mjs                  write every file, SVG and raster
  *   node bin/build-brand.mjs --check          fail if a text file is stale or a raster is missing
  *   node bin/build-brand.mjs --social <dir>   render one 1280x640 card per repository, outside the repo
+ *   node bin/build-brand.mjs --digest         print the digest of the rasters' inputs; writes nothing
  *
  * The SVG, JSON and manifest files are plain text and are compared byte for
  * byte under `--check`. The PNG and ICO files are rendered by headless Chrome
- * and are not reproducible byte for byte, so `--check` only confirms they
- * exist; `SHA256SUMS` pins them. Set `CHROME` to a browser binary to override
+ * and are not reproducible byte for byte, so `--check` confirms they exist and
+ * compares a digest of everything fed to Chrome (the markup, sizes and font of
+ * every render) with `bin/brand-rasters.sha256`, which a full build rewrites.
+ * A change that only affects the rasters, such as the icon layout, then fails
+ * `--check` until the rasters are rebuilt. `SHA256SUMS` pins the files. Set `CHROME` to a browser binary to override
  * the search. After writing, run `node bin/build-design-tokens.mjs`, because
  * `SHA256SUMS` covers everything under `source/`.
  */
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -41,6 +46,7 @@ import {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = path.join(root, "source/brand");
+const DEFAULT_STAMP = path.join(root, "bin/brand-rasters.sha256");
 
 // REUSE-IgnoreStart -- the banner below is the SPDX tag of the generated files, not this file's own
 const SPDX = `<!--
@@ -259,7 +265,16 @@ function rasterJobs(colours, texts, fontCss = "") {
   ];
 }
 
-async function writeAll(colours) {
+/** A digest of every render's inputs: the markup, the size, whether it is an ICO frame, and the font. */
+async function rasterDigest(colours, texts) {
+  const hash = createHash("sha256");
+  for (const [rel, job] of rasterJobs(colours, texts, await fonts())) {
+    hash.update(JSON.stringify([rel, job.body, job.width, job.height, job.temp ?? false, job.fontCss ?? ""]));
+  }
+  return hash.digest("hex");
+}
+
+async function writeAll(colours, stampFile) {
   // Find Chrome before touching any file, so a machine without one cannot leave
   // new SVGs next to old PNGs.
   const chrome = findChrome();
@@ -284,14 +299,17 @@ async function writeAll(colours) {
     }
     await writeFile(path.join(outDir, "favicon/favicon.ico"), packIco(frames));
     console.log("wrote source/brand/favicon/favicon.ico");
+    await writeFile(stampFile, `${await rasterDigest(colours, texts)}\n`, "utf8");
+    console.log(`wrote ${path.relative(root, stampFile)}`);
   } finally {
     await rm(scratch, { recursive: true, force: true });
   }
 }
 
-async function check(colours) {
+async function check(colours, stampFile) {
   let current = true;
-  for (const [rel, content] of textFiles(colours)) {
+  const texts = textFiles(colours);
+  for (const [rel, content] of texts) {
     let existing = null;
     try {
       existing = await readFile(path.join(outDir, rel), "utf8");
@@ -305,13 +323,25 @@ async function check(colours) {
   }
   const rasters = [
     "favicon/favicon.ico",
-    ...rasterJobs(colours, textFiles(colours)).map(([rel]) => rel).filter((rel) => !rel.startsWith("ico-frame")),
+    ...rasterJobs(colours, texts).map(([rel]) => rel).filter((rel) => !rel.startsWith("ico-frame")),
   ];
   for (const rel of rasters) {
     if (!existsSync(path.join(outDir, rel))) {
       console.error(`fail  source/brand/${rel} is missing -- run \`node bin/build-brand.mjs\``);
       current = false;
     }
+  }
+  let stamp = null;
+  try {
+    stamp = (await readFile(stampFile, "utf8")).trim();
+  } catch (cause) {
+    if (cause.code !== "ENOENT") throw cause;
+  }
+  if (stamp !== (await rasterDigest(colours, texts))) {
+    console.error(
+      `fail  the PNG and ICO files are stale (${stamp === null ? "no" : "a different"} ${path.relative(root, stampFile)}) -- run \`node bin/build-brand.mjs\` and commit the result`,
+    );
+    current = false;
   }
   if (current) console.log("  ok  source/brand is current");
   return current;
@@ -369,15 +399,17 @@ function argValue(flag) {
   return value;
 }
 
-const FLAGS = new Set(["--check", "--social", "--projects"]);
+const FLAGS = new Set(["--check", "--social", "--projects", "--stamp", "--digest"]);
 
 /** Rejects an unknown flag or a mix of modes, so a typo cannot rewrite every raster. */
 function validateArgs(args) {
   const flags = args.filter((arg) => arg.startsWith("--"));
   const unknown = flags.filter((flag) => !FLAGS.has(flag));
-  if (unknown.length > 0) throw new BrandError(`unknown option ${unknown.join(", ")} (use --check or --social <dir> [--projects <file>])`);
+  if (unknown.length > 0) throw new BrandError(`unknown option ${unknown.join(", ")} (use --check [--stamp <file>] or --social <dir> [--projects <file>])`);
   if (flags.includes("--check") && flags.includes("--social")) throw new BrandError("--check and --social cannot be combined");
   if (flags.includes("--projects") && !flags.includes("--social")) throw new BrandError("--projects only applies with --social");
+  if (flags.includes("--digest") && flags.length > 1) throw new BrandError("--digest takes no other option");
+  if (flags.includes("--stamp") && flags.includes("--social")) throw new BrandError("--stamp does not apply with --social");
   const positional = args.filter((arg, i) => !arg.startsWith("--") && !FLAGS.has(args[i - 1]));
   if (positional.length > 0) throw new BrandError(`unexpected argument ${positional[0]}`);
 }
@@ -385,14 +417,20 @@ function validateArgs(args) {
 async function main() {
   validateArgs(process.argv.slice(2));
   const colours = await loadColours();
+  if (process.argv.includes("--digest")) {
+    // Read-only: print the digest of the rasters' inputs, for a reviewer to compare with the stamp.
+    console.log(await rasterDigest(colours, textFiles(colours)));
+    return;
+  }
   const socialDir = argValue("--social");
+  const stampFile = path.resolve(argValue("--stamp") ?? DEFAULT_STAMP);
   if (socialDir) {
     const projects = argValue("--projects") ?? path.resolve(root, "../.github/blueprint/projects.json");
     await social(colours, path.resolve(socialDir), projects);
   } else if (process.argv.includes("--check")) {
-    if (!(await check(colours))) process.exitCode = 1;
+    if (!(await check(colours, stampFile))) process.exitCode = 1;
   } else {
-    await writeAll(colours);
+    await writeAll(colours, stampFile);
   }
 }
 
