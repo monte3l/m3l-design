@@ -6,6 +6,16 @@ All notable changes to m3l-design. The format follows
 the release workflow from the Conventional Commits since the last release,
 grouped as Added, Changed and Fixed; the sections before them are as written.
 
+## [1.3.2](https://github.com/monte3l/m3l-design/compare/v1.3.1...v1.3.2) (2026-10-23)
+
+
+### Fixed
+
+* **brand:** drop the "reads as an M" line from the brand book ([f754f58](https://github.com/monte3l/m3l-design/commit/f754f587d89e08266ecc2f588339275c3520fd6d))
+* **brand:** drop the "reads as an M" line from the brand book ([65d138f](https://github.com/monte3l/m3l-design/commit/65d138f69eb7edfc6d046b6b614254c8f71ee74c))
+* **docs-kit:** show the site name once in the home page title ([2f38077](https://github.com/monte3l/m3l-design/commit/2f380772dc08f8df276f524b6d53be7bc60e8341))
+* **docs-kit:** show the site name once in the home page title ([ac1ae06](https://github.com/monte3l/m3l-design/commit/ac1ae06c2b969c96ce5d4714caaa4cefc490e5c9))
+
 ## [1.3.1](https://github.com/monte3l/m3l-design/compare/v1.3.0...v1.3.1) (2026-10-23)
 
 
