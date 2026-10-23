@@ -106,6 +106,7 @@ describe("build.mjs --check end to end", () => {
     assert.equal(spawnSync(process.execPath, [BUILD, "--out", "_site"], { cwd: root, encoding: "utf8" }).status, 0);
     const html = await readFile(path.join(root, "_site/index.html"), "utf8");
     assert.doesNotMatch(html, /rel="icon"|m3l-site-brand/);
+    await assert.rejects(readFile(path.join(root, "_site/favicon.ico")), { code: "ENOENT" });
   });
 
   it("adds the favicon links, the header logo and the files when brand is true", async () => {
@@ -119,6 +120,11 @@ describe("build.mjs --check end to end", () => {
     assert.match(html, /rel="apple-touch-icon" href="assets\/brand\/favicon\/apple-touch-icon\.png"/);
     assert.match(html, /<a class="m3l-site-brand" href="index\.html"><img [^>]*symbol-light\.svg" alt="MONTE3L"[^>]*><img [^>]*symbol-dark\.svg" alt="MONTE3L"/);
     for (const rel of BRAND_FILES) await readFile(path.join(root, "_site/assets/brand", rel));
+    assert.equal(
+      await readFile(path.join(root, "_site/favicon.ico"), "utf8"),
+      "brand favicon/favicon.ico",
+      "favicon.ico is also served at the site root",
+    );
     const notFound = await readFile(path.join(root, "_site/404.html"), "utf8");
     assert.match(notFound, /href="\/assets\/brand\/favicon\/favicon\.svg"/);
     assert.match(notFound, /<a class="m3l-site-brand" href="\/index\.html">/);
