@@ -7,7 +7,7 @@
  * Project Authors, https://github.com/googlefonts/atkinson-hyperlegible-next).
  * The OFL FAQ (1.1, 1.13) says artwork made from a font's outlines is not
  * itself subject to the OFL, so these are part of the MONTE3L logo and carry
- * the brand licence, not MIT. Units are 1000 per em, y up, so a path is drawn
+ * the brand license, not MIT. Units are 1000 per em, y up, so a path is drawn
  * with a flip (`scale(1 -1)`). `bounds` is [xMin, yMin, xMax, yMax] and `adv`
  * is the advance width. Extracted once with fontTools; regenerate only if the
  * mark changes.

@@ -35,7 +35,7 @@
   outline-offset: var(--focus-ring-offset);
 }
 
-/* With the symbol present the header has three children; keep the nav beside it, not centred. */
+/* With the symbol present the header has three children; keep the nav beside it, not centered. */
 .m3l-site-brand + .m3l-nav {
   margin-inline-end: auto;
 }

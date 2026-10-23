@@ -4,13 +4,13 @@
 
 /**
  * Generates the MONTE3L brand pack under `source/brand/` from one geometry
- * module (`bin/lib/brand-geometry.mjs`) and the resolved colour tokens
- * (`source/lib/design-tokens.mjs`), so no logo file holds a colour the design
+ * module (`bin/lib/brand-geometry.mjs`) and the resolved color tokens
+ * (`source/lib/design-tokens.mjs`), so no logo file holds a color the design
  * system does not.
  *
  *   node bin/build-brand.mjs                  write every file, SVG and raster
  *   node bin/build-brand.mjs --check          fail if a text file is stale or a raster is missing
- *   node bin/build-brand.mjs --social <dir>   render one 1280x640 card per repository, outside the repo
+ *   node bin/build-brand.mjs --social <dir>   render one 1280x640 card per repository, outside the repo, with each card line from the .github blueprint's projects.json
  *   node bin/build-brand.mjs --digest         print the digest of the rasters' inputs; writes nothing
  *
  * The SVG, JSON and manifest files are plain text and are compared byte for
@@ -58,7 +58,8 @@ const SPDX = `<!--
 // REUSE-IgnoreEnd
 
 const FONT_STACK = `'Atkinson Hyperlegible Next', system-ui, sans-serif`;
-const ORG_TAGLINE = "Open-source tooling for TypeScript projects and Claude Code.";
+// The organization description in the .github repository's blueprint/org.json, without a final dot.
+const ORG_TAGLINE = "Open-source tooling for TypeScript projects and Claude Code";
 
 class BrandError extends Error {
   constructor(message, options) {
@@ -67,8 +68,8 @@ class BrandError extends Error {
   }
 }
 
-/** The colours the brand uses, by role, resolved from the design tokens for both themes. */
-async function loadColours() {
+/** The colors the brand uses, by role, resolved from the design tokens for both themes. */
+async function loadColors() {
   const system = await loadDesignSystem(path.join(root, "source/dtcg"));
   const pick = (theme) => {
     const all = new Map(
@@ -205,7 +206,7 @@ async function renderPng(chrome, { body, width, height, out, fontCss = "" }) {
 
 const strip = (svg) => svg.replace(SPDX, "").trim();
 
-/** A symbol on a solid square (or rounded square) of the accent colour, for icons and the avatar. */
+/** A symbol on a solid square (or rounded square) of the accent color, for icons and the avatar. */
 function badge({ c, dark, size, scale, rounded }) {
   const radius = rounded ? size * 0.22 : 0;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
@@ -242,8 +243,8 @@ async function fonts() {
 }
 
 /** Every raster of the pack: `[path relative to source/brand, render]`. */
-function rasterJobs(colours, texts, fontCss = "") {
-  const { light, dark } = colours;
+function rasterJobs(colors, texts, fontCss = "") {
+  const { light, dark } = colors;
   const art = (opts) => badge({ c: light, dark, ...opts });
   const sq = (size, scale, extra = {}) => ({
     body: art({ size, scale, ...extra }),
@@ -266,19 +267,19 @@ function rasterJobs(colours, texts, fontCss = "") {
 }
 
 /** A digest of every render's inputs: the markup, the size, whether it is an ICO frame, and the font. */
-async function rasterDigest(colours, texts) {
+async function rasterDigest(colors, texts) {
   const hash = createHash("sha256");
-  for (const [rel, job] of rasterJobs(colours, texts, await fonts())) {
+  for (const [rel, job] of rasterJobs(colors, texts, await fonts())) {
     hash.update(JSON.stringify([rel, job.body, job.width, job.height, job.temp ?? false, job.fontCss ?? ""]));
   }
   return hash.digest("hex");
 }
 
-async function writeAll(colours, stampFile) {
+async function writeAll(colors, stampFile) {
   // Find Chrome before touching any file, so a machine without one cannot leave
   // new SVGs next to old PNGs.
   const chrome = findChrome();
-  const texts = textFiles(colours);
+  const texts = textFiles(colors);
   for (const [rel, content] of texts) {
     await mkdir(path.dirname(path.join(outDir, rel)), { recursive: true });
     await writeFile(path.join(outDir, rel), content, "utf8");
@@ -287,7 +288,7 @@ async function writeAll(colours, stampFile) {
   const scratch = await mkdtemp(path.join(tmpdir(), "m3l-ico-"));
   try {
     const frames = [];
-    for (const [rel, job] of rasterJobs(colours, texts, await fonts())) {
+    for (const [rel, job] of rasterJobs(colors, texts, await fonts())) {
       if (job.temp) {
         const out = path.join(scratch, `${rel}.png`);
         await renderPng(chrome, { ...job, out });
@@ -299,16 +300,16 @@ async function writeAll(colours, stampFile) {
     }
     await writeFile(path.join(outDir, "favicon/favicon.ico"), packIco(frames));
     console.log("wrote source/brand/favicon/favicon.ico");
-    await writeFile(stampFile, `${await rasterDigest(colours, texts)}\n`, "utf8");
+    await writeFile(stampFile, `${await rasterDigest(colors, texts)}\n`, "utf8");
     console.log(`wrote ${path.relative(root, stampFile)}`);
   } finally {
     await rm(scratch, { recursive: true, force: true });
   }
 }
 
-async function check(colours, stampFile) {
+async function check(colors, stampFile) {
   let current = true;
-  const texts = textFiles(colours);
+  const texts = textFiles(colors);
   for (const [rel, content] of texts) {
     let existing = null;
     try {
@@ -323,7 +324,7 @@ async function check(colours, stampFile) {
   }
   const rasters = [
     "favicon/favicon.ico",
-    ...rasterJobs(colours, texts).map(([rel]) => rel).filter((rel) => !rel.startsWith("ico-frame")),
+    ...rasterJobs(colors, texts).map(([rel]) => rel).filter((rel) => !rel.startsWith("ico-frame")),
   ];
   for (const rel of rasters) {
     if (!existsSync(path.join(outDir, rel))) {
@@ -337,7 +338,7 @@ async function check(colours, stampFile) {
   } catch (cause) {
     if (cause.code !== "ENOENT") throw cause;
   }
-  if (stamp !== (await rasterDigest(colours, texts))) {
+  if (stamp !== (await rasterDigest(colors, texts))) {
     console.error(
       `fail  the PNG and ICO files are stale (${stamp === null ? "no" : "a different"} ${path.relative(root, stampFile)}) -- run \`node bin/build-brand.mjs\` and commit the result`,
     );
@@ -347,41 +348,29 @@ async function check(colours, stampFile) {
   return current;
 }
 
-/** Description of a repository from `gh`, or the org tagline when it has none or `gh` cannot say. */
-function describeRepo(repo) {
-  try {
-    const text = execFileSync("gh", ["repo", "view", `monte3l/${repo}`, "--json", "description", "-q", ".description"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-      timeout: 30_000,
-    }).trim();
-    return text || ORG_TAGLINE;
-  } catch (cause) {
-    console.warn(`warn  could not read the description of monte3l/${repo} (${cause.message.split("\n")[0]}); using the org tagline`);
-    return ORG_TAGLINE;
-  }
-}
-
-async function social(colours, dir, projectsFile) {
+async function social(colors, dir, projectsFile) {
   let projects;
   try {
     projects = JSON.parse(await readFile(projectsFile, "utf8"));
   } catch (cause) {
     throw new BrandError(`cannot read ${projectsFile}: ${cause.message}`);
   }
-  if (!Array.isArray(projects) || projects.some((p) => typeof p?.repo !== "string" || !/^[\w.-]+$/.test(p.repo) || p.repo.includes(".."))) {
-    throw new BrandError(`${projectsFile} must be an array of { "repo": "<name>" } with plain repository names`);
+  if (
+    !Array.isArray(projects) ||
+    projects.some((p) => typeof p?.repo !== "string" || !/^[\w.-]+$/.test(p.repo) || p.repo.includes("..") || typeof p.card !== "string" || p.card === "")
+  ) {
+    throw new BrandError(`${projectsFile} must be an array of { "repo": "<name>", "card": "<card line>" } with plain repository names`);
   }
   const chrome = findChrome();
   const fontCss = await fonts();
   await mkdir(dir, { recursive: true });
-  for (const { repo } of projects) {
+  for (const { repo, card } of projects) {
     const svg = cardSvg({
       width: 1280,
       height: 640,
       name: repo,
-      tagline: describeRepo(repo),
-      c: colours.light,
+      tagline: card,
+      c: colors.light,
       id: "m3l-card",
       fontFamily: FONT_STACK,
     });
@@ -416,21 +405,21 @@ function validateArgs(args) {
 
 async function main() {
   validateArgs(process.argv.slice(2));
-  const colours = await loadColours();
+  const colors = await loadColors();
   if (process.argv.includes("--digest")) {
     // Read-only: print the digest of the rasters' inputs, for a reviewer to compare with the stamp.
-    console.log(await rasterDigest(colours, textFiles(colours)));
+    console.log(await rasterDigest(colors, textFiles(colors)));
     return;
   }
   const socialDir = argValue("--social");
   const stampFile = path.resolve(argValue("--stamp") ?? DEFAULT_STAMP);
   if (socialDir) {
     const projects = argValue("--projects") ?? path.resolve(root, "../.github/blueprint/projects.json");
-    await social(colours, path.resolve(socialDir), projects);
+    await social(colors, path.resolve(socialDir), projects);
   } else if (process.argv.includes("--check")) {
-    if (!(await check(colours, stampFile))) process.exitCode = 1;
+    if (!(await check(colors, stampFile))) process.exitCode = 1;
   } else {
-    await writeAll(colours, stampFile);
+    await writeAll(colors, stampFile);
   }
 }
 

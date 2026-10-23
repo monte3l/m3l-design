@@ -3,15 +3,15 @@
 
 /**
  * Geometry of the MONTE3L logo, as SVG strings. Nothing here reads a file or a
- * token: `bin/build-brand.mjs` passes the colours in, so this module is pure.
+ * token: `bin/build-brand.mjs` passes the colors in, so this module is pure.
  *
  * The symbol is two identical rounded peaks side by side, parted by a gap. It
  * has no letter in it, so nothing can read as one founder's initial: the two
  * peaks are the two people, and neither is placed or sized to lead. The left
  * peak takes `leftAttr` and the right `rightAttr`. A fill is an attribute
- * string (`fill="#692746"` or `class="e"`) so the favicon can switch colour
+ * string (`fill="#692746"` or `class="e"`) so the favicon can switch color
  * with `prefers-color-scheme`, which a presentation attribute cannot. Each
- * peak is a real path, with no stroke, so one fill is all a colour needs.
+ * peak is a real path, with no stroke, so one fill is all a color needs.
  */
 import { GLYPHS } from "./brand-glyphs.mjs";
 
@@ -97,7 +97,7 @@ ${body}
 `;
 }
 
-/** Symbol, a gap of 0.27 symbol heights, then the wordmark at 0.36 of the symbol's height, in one colour. */
+/** Symbol, a gap of 0.27 symbol heights, then the wordmark at 0.36 of the symbol's height, in one color. */
 export function lockupSvg({ id = "m3l", title = "MONTE3L", leftAttr, rightAttr, fill }) {
   const { x, y, width, height } = SYMBOL_BOX;
   const k = (height * 0.36) / CAP_HEIGHT;
@@ -138,7 +138,7 @@ function wrap(text, limit, lines) {
 /**
  * A social card: the wordmark top left, the repository name and a one-line
  * description bottom left, the symbol bleeding off the top right. `c` holds
- * the light-theme colours (ground, ink, secondary, wine). The page that
+ * the light-theme colors (ground, ink, secondary, wine). The page that
  * renders it must load Atkinson Hyperlegible Next; the file names it first in
  * a fallback stack.
  */

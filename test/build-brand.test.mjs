@@ -3,7 +3,7 @@
 
 /**
  * Checks the committed brand pack: every SVG is accessible and carries its
- * licence tag, no ids collide inside a file, the colours are the design
+ * license tag, no ids collide inside a file, the colors are the design
  * tokens, and the generated text files match what the build would write.
  *
  * Run with `node --test`.
@@ -46,12 +46,12 @@ describe("brand pack", () => {
         assert.equal(new Set(ids).size, ids.length);
       });
 
-      it("uses only token colours, currentColor or black", () => {
+      it("uses only token colors, currentColor or black", () => {
         const allowed = new Set([
           "#1a1617", "#692746", "#fefcfd", "#554d50", "#faf5f7", "#d1789e", "#120e10", "#000", "#fff", "#000000",
         ]);
         for (const [hex] of text.matchAll(/#[0-9a-fA-F]{3,6}\b/g)) {
-          if (/^#[0-9a-f]{6}$/.test(hex) || hex.length === 4) assert.ok(allowed.has(hex), `${file}: ${hex} is not a token colour`);
+          if (/^#[0-9a-f]{6}$/.test(hex) || hex.length === 4) assert.ok(allowed.has(hex), `${file}: ${hex} is not a token color`);
         }
       });
     });

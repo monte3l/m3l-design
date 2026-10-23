@@ -5,30 +5,30 @@ The MONTE3L logo and the files made from it: logos, favicons, a GitHub avatar an
 The brand is the system's own: Atkinson Hyperlegible Next Bold, the wine accent and the warm neutrals. The reasoning is in the **Logo** section of the brand book.
 
 > [!IMPORTANT]
-> The logo is **not** MIT. Code, tokens and components are MIT. The files in this folder are under their own licence: see `LICENSE.md` next to them. Keep it with every copy.
+> The logo is **not** MIT. Code, tokens and components are MIT. The files in this folder are under their own license: see `LICENSE.md` next to them. Keep it with every copy.
 
 ### The mark
 
 Two identical rounded peaks, one for each of the two people behind monte3l. The left is ink and the right is wine, with a gap between them. There is no letter in the symbol, so no initial can lead, and the two peaks are the same size and shape. The symbol has no background of its own and works on any ground.
 
-The wordmark is in one colour. The 3 is not picked out, because that would single out one half of the name.
+The wordmark is in one color. The 3 is not picked out, because that would single out one half of the name.
 
-The name is set in capitals in the logo only. In running text, write **monte3l**, as in the GitHub organisation and every repository name.
+The name is set in capitals in the logo only. In running text, write **monte3l**, as in the GitHub organization and every repository name.
 
 ### Files
 
 | Folder | Files | Use |
 | --- | --- | --- |
-| `logo/` | `symbol`, `wordmark` and `lockup`, each in `light`, `dark` and `mono` (nine SVGs) | Light is for light grounds, dark for dark grounds. Mono uses `currentColor`, so it takes the colour of the text around it |
+| `logo/` | `symbol`, `wordmark` and `lockup`, each in `light`, `dark` and `mono` (nine SVGs) | Light is for light grounds, dark for dark grounds. Mono uses `currentColor`, so it takes the color of the text around it |
 | `favicon/` | `favicon.svg`, `favicon.ico`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `icon-monochrome.svg`, `site.webmanifest` | A website or web app |
-| `github/` | `avatar.png` (500 × 500) | The organisation avatar. Upload it in the organisation settings |
-| `social/` | `social-preview` (1280 × 640) and `og-image` (1200 × 630), each as SVG and PNG | The organisation card. `bin/build-brand.mjs --social <dir>` renders one per repository |
+| `github/` | `avatar.png` (500 × 500) | The organization avatar. Upload it in the organization settings |
+| `social/` | `social-preview` (1280 × 640) and `og-image` (1200 × 630), each as SVG and PNG | The organization card. `bin/build-brand.mjs --social <dir>` renders one per repository, with the card line from the `.github` blueprint's `projects.json` |
 
-There is one symbol at every size. `favicon.svg` is the same two peaks with its colours switched by `prefers-color-scheme`.
+There is one symbol at every size. `favicon.svg` is the same two peaks with its colors switched by `prefers-color-scheme`.
 
-### Colours
+### Colors
 
-All colours are design tokens, resolved by the build.
+All colors are design tokens, resolved by the build.
 
 | Role | Token | Light | Dark |
 | --- | --- | --- | --- |
@@ -54,7 +54,7 @@ The logo is exempt from the WCAG text contrast rule. These ratios are recorded b
 
 ### Do not
 
-- Recolour the peaks, swap the two colours, make one peak larger or use a colour that is not a token.
+- Recolor the peaks, swap the two colors, make one peak larger or use a color that is not a token.
 - Stretch, rotate, outline, add a shadow or put the mark on a busy image.
 - Set the wordmark in another typeface or change its tracking.
 - Redraw the symbol. Change `bin/lib/brand-geometry.mjs` and rebuild.

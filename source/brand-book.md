@@ -311,28 +311,28 @@ joined: monte + 3l. The two people matter equally, and the name was chosen for
 that reason, so the mark has to show it.
 
 The first mark paired an E and a 3. Both come from `enri3l`, and the E is also
-Enrico's initial, so it read as one founder's logo, not the organisation's.
+Enrico's initial, so it read as one founder's logo, not the organization's.
 It was replaced before it was used anywhere that mattered.
 
 - **Symbol:** two identical rounded peaks side by side, parted by a gap, one in
   ink and one in wine. It has no letter, so no initial can lead. The two peaks
-  are the two people, equal in size, shape and colour area. They also read as
+  are the two people, equal in size, shape and color area. They also read as
   an M, and monte is Italian for mountain. Chosen over three other takes (M3L
   tiles, an overlap, an m3l monogram) because it holds up as an avatar and at
-  16 px, and stays readable in one colour.
+  16 px, and stays readable in one color.
 - **Wordmark:** MONTE3L in capitals, tracked +0.09em (the system's rule for
-  weight 700), in one colour. The 3 is not picked out: that would single out
+  weight 700), in one color. The 3 is not picked out: that would single out
   Enrico's half again. The letters are Atkinson Hyperlegible Next Bold,
   outlined, and the OFL FAQ (1.1, 1.13) says artwork made from a font's
   outlines is not subject to the OFL. Capitals are for the logo only. In
-  running text the name stays **monte3l**, as in the organisation and every
+  running text the name stays **monte3l**, as in the organization and every
   repository.
-- **Colour:** only tokens. Ink is `color-text-primary`, wine is
+- **Color:** only tokens. Ink is `color-text-primary`, wine is
   `color-accent-default`, so the dark theme gets `#d1789e` for free. Wine on
   the light ground is 10.39:1, on the dark ground 6.29:1. The left peak is ink
-  and the right is wine. Neither colour is "the main one": both cover the same
+  and the right is wine. Neither color is "the main one": both cover the same
   area.
-- **Licence:** the logo files are all rights reserved, unlike the MIT code.
+- **License:** the logo files are all rights reserved, unlike the MIT code.
   See `brand/LICENSE.md`. The files, spec sizes and rebuild commands are in
   **Brand assets**.
 
