@@ -20,13 +20,15 @@ Node 24 (`.node-version`), no `package.json`, nothing to install.
 | `node --test` | Resolver parity tests, credit-file checks and the docs kit tests |
 | `node source/docs-kit/build.mjs --check` | Build this repository's docs site and gate it: links, page coverage, `SHA256SUMS`, local CSS, parity with the payload. CI runs this |
 | `node source/docs-kit/build.mjs --out _site` | Write the docs site |
+| `node source/docs-kit/check-live.mjs --site _site` | Fetch every page and asset from design.monte3l.com and fail unless each matches `_site` byte for byte, headers included. `--metadata` compares the manifest with the GitHub repository's settings |
+| `bin/sync-design.sh --dry-run --from <ref> <tag> <consumer-dir>` | Rehearse a consumer sync from a local ref before the tag exists (`/release` does this) |
 | `node --test --test-name-pattern="shadow"` | Run one test |
 | `EVENT_NAME=pull_request BASE_SHA=<sha> HEAD_SHA=<sha> node bin/check-payload-commits.mjs` | What the `payload-commits` lane runs: fails if the range changes `source/`, `tokens.css` or `SHA256SUMS` without a `feat` or `fix` commit, deletes or renames a payload file without a breaking one, or has a `feat` or `fix` commit that changes no payload file |
 | `sha256sum -c --quiet SHA256SUMS` | Check the payload hashes (`shasum -a 256 -c` on macOS) |
 | `bash -n bin/*.sh && shellcheck bin/*.sh` | Lint the shell scripts |
 | `reuse lint` | REUSE licensing check (CI runs it from `reuse.yml` with `fsfe/reuse-action`) |
 
-CI (`.github/workflows/verify.yml`) also runs `jq empty` on every JSON file under `source/` and `artifact/`, and a `dco` lane for sign-offs; actionlint and zizmor run from `workflow-lint.yml` when a workflow changes.
+CI (`.github/workflows/verify.yml`) also runs `jq empty` on every JSON file under `source/` and `artifact/`, and a `dco` lane for sign-offs. `commit-lint.yml` also checks the pull request title, because a squash merge turns it into the commit message release-please reads. `docs.yml` deploys the site to Cloudflare on every push to `main`, then runs `check-live.mjs` against it. actionlint and zizmor run from `workflow-lint.yml` when a workflow changes.
 
 ## How the pieces fit
 
