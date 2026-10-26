@@ -14,3 +14,10 @@ ignored_patterns:
   # file declares it. A repository that does not vendor m3l-design can drop
   # this line.
   - "design/source/brand/*"
+  # m3l-design is where the brand lives: its build scripts and avatars declare
+  # LicenseRef-MONTE3L-Brand, and build-brand.mjs stamps that line into the
+  # SVGs it generates. `reuse lint` checks the declaration.
+  - "source/brand/*"
+  - "avatars/*"
+  - "bin/build-brand.mjs"
+  - "bin/lib/brand-glyphs.mjs"
