@@ -3,6 +3,7 @@
 [![verify](https://github.com/monte3l/m3l-design/actions/workflows/verify.yml/badge.svg?branch=main)](https://github.com/monte3l/m3l-design/actions/workflows/verify.yml)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/monte3l/m3l-design/badge)](https://securityscorecards.dev/viewer/?uri=github.com/monte3l/m3l-design)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15706/badge)](https://www.bestpractices.dev/projects/15706)
+[![OpenSSF Baseline](https://www.bestpractices.dev/projects/15706/baseline)](https://www.bestpractices.dev/projects/15706)
 [![REUSE status](https://api.reuse.software/badge/github.com/monte3l/m3l-design)](https://api.reuse.software/info/github.com/monte3l/m3l-design)
 
 m3l-design is the design system of the [`monte3l`](https://github.com/monte3l)
