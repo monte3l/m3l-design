@@ -30,7 +30,7 @@ jobs:
           # Permissive licenses only. Add a license here only after checking
           # that this project can accept its terms.
           # BlueOak-1.0.0, Artistic-2.0 and CC-BY-3.0 cover the dependency tree
-          # of wrangler in .github/deploy-tools. All are permissive; this repo
+          # of wrangler in tools/deploy. All are permissive; this repo
           # never redistributes them.
           allow-licenses: MIT, MIT-0, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD, CC0-1.0, Unlicense, CC-BY-4.0, BlueOak-1.0.0, Artistic-2.0, CC-BY-3.0
           # Per-package, not per-license: wrangler pulls in sharp's prebuilt
