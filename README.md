@@ -174,6 +174,29 @@ Every release is **immutable**: its tag and assets cannot change after
 publishing, and each one carries a GitHub attestation. A published tag name can
 never be reused, so a bad release is fixed with the next version.
 
+## Verifying a release
+
+A release has no signing key to fetch. Its assets carry a Sigstore-backed
+attestation made in GitHub Actions, and the expected signer is the shared
+release workflow in [`monte3l/.github`](https://github.com/monte3l/.github),
+running for this repository. `bin/sync-design.sh` runs the first two checks
+below, and then the checksum check, before it writes anything. To check by
+hand, download an asset with `gh release download vX.Y.Z -R monte3l/m3l-design`
+and run:
+
+| Command | What it proves |
+| --- | --- |
+| `gh release verify vX.Y.Z -R monte3l/m3l-design` | The release is immutable and its attestation is valid. It lists the digest of every asset |
+| `gh release verify-asset vX.Y.Z <file> -R monte3l/m3l-design` | The file you downloaded is one of that release's attested assets |
+| `gh attestation verify <file> -R monte3l/m3l-design --signer-repo monte3l/.github` | The file was built from this repository by the shared release workflow. It exits 0 on success and prints nothing |
+| `sha256sum -c SHA256SUMS`, run in an extracted payload or in `design/` | The payload's files are unedited (`shasum -a 256 -c SHA256SUMS` on macOS) |
+
+> [!NOTE]
+> Run `gh attestation verify` with `--signer-repo monte3l/.github`. Without it
+> the command fails with a misleading `verifying with issuer "sigstore.dev"`
+> error, because the signing workflow lives in `monte3l/.github` and not in this
+> repository. The checks need `gh` 2.81 or later.
+
 ## Working on this repo
 
 | Command | What it does |
@@ -224,7 +247,11 @@ Releases are automatic and need no command. For maintainers:
 
 - [`CHANGELOG.md`](CHANGELOG.md): what changed in each release.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md): how to report a bug and contribute.
-- [`SECURITY.md`](SECURITY.md): reporting a vulnerability.
+- [`SECURITY.md`](SECURITY.md): reporting a vulnerability, and how secrets and findings are handled.
+- [`GOVERNANCE.md`](GOVERNANCE.md): who decides, who gets access, and the bus factor.
+- [`ROADMAP.md`](ROADMAP.md): what is next, and what this project will not do.
+- [`docs/architecture.md`](docs/architecture.md): the actors, the data flow and every external interface.
+- [`docs/assurance-case.md`](docs/assurance-case.md): the threat model and why it holds.
 - [`CLAUDE.md`](CLAUDE.md): the full maintainer reference for agents: commands,
   how the pieces fit, conventions.
 - [`AUTHORS.md`](AUTHORS.md): who made it.

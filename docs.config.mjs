@@ -34,6 +34,10 @@ export default {
     { src: "CHANGELOG.md", out: "CHANGELOG.html", group: "Project", label: "Releases" },
     { src: "CONTRIBUTING.md", out: "CONTRIBUTING.html", group: "Project", label: "Contributing" },
     { src: "SECURITY.md", out: "SECURITY.html", group: "Project", label: "Security policy" },
+    { src: "GOVERNANCE.md", out: "GOVERNANCE.html", group: "Project", label: "Governance" },
+    { src: "ROADMAP.md", out: "ROADMAP.html", group: "Project", label: "Roadmap" },
+    { src: "docs/architecture.md", out: "architecture.html", group: "Project", label: "Architecture" },
+    { src: "docs/assurance-case.md", out: "assurance-case.html", group: "Project", label: "Assurance case" },
   ],
   exclude: [
     { glob: ".claude/**", reason: "Claude Code agents and skills for working in this repository" },
