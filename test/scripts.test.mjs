@@ -38,6 +38,15 @@ function consumer(t, version = "v0.0.1") {
 
 const sha = (file) => createHash("sha256").update(readFileSync(file)).digest("hex");
 
+// What the scripts read is the commit given to --from, not the working tree, so
+// the expected bytes come from HEAD too. A maintainer who has regenerated
+// SHA256SUMS but not yet committed it would otherwise see a false failure.
+const committedSha = (path) => {
+  const result = spawnSync("git", ["show", `HEAD:${path}`], { cwd: root, encoding: "buffer" });
+  assert.equal(result.status, 0, `git show HEAD:${path}`);
+  return createHash("sha256").update(result.stdout).digest("hex");
+};
+
 test("sync-design rejects a tag that is not vX.Y.Z before it touches anything", (t) => {
   const dir = consumer(t);
   for (const tag of ["main", "v1.2", "v1.2.3-rc1", "v1/../x", "1.2.3"]) {
@@ -89,8 +98,8 @@ test("a sync copies the payload, updates the marker and writes only under design
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(readdirSync(dir), ["design"]);
   assert.deepEqual(readdirSync(join(dir, "design")).sort(), ["README.md", "SHA256SUMS", "source", "tokens.css"]);
-  assert.equal(sha(join(dir, "design", "tokens.css")), sha(join(root, "tokens.css")));
-  assert.equal(sha(join(dir, "design", "SHA256SUMS")), sha(join(root, "SHA256SUMS")));
+  assert.equal(sha(join(dir, "design", "tokens.css")), committedSha("tokens.css"));
+  assert.equal(sha(join(dir, "design", "SHA256SUMS")), committedSha("SHA256SUMS"));
   const marker = readFileSync(join(dir, "design", "README.md"), "utf8");
   assert.match(marker, /- \*\*Version copied:\*\* `v1\.0\.0`/);
   assert.match(marker, /- \*\*Last re-synced:\*\* \d{4}-\d{2}-\d{2}/);
@@ -130,7 +139,7 @@ test("package-release builds the same bytes from the same commit, twice", (t) =>
   for (const name of names) {
     assert.equal(sha(join(one, name)), sha(join(two, name)), name);
   }
-  assert.equal(sha(join(one, "SHA256SUMS")), sha(join(root, "SHA256SUMS")));
+  assert.equal(sha(join(one, "SHA256SUMS")), committedSha("SHA256SUMS"));
 });
 
 test("package-release rejects a malformed tag and an unknown ref", (t) => {
