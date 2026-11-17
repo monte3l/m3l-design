@@ -136,7 +136,7 @@ adopting a release is a plain copy.
 | --- | --- |
 | Consumers running a sync | bash, `git`, [`gh`](https://cli.github.com/) 2.81 or later (for release verification), and `sha256sum` or `shasum` |
 | Consumers building a docs site | Node 24 and `git`, for the docs kit |
-| Maintainers | Node 24 (`.node-version` is the authority), [`reuse`](https://reuse.software/), `shellcheck` and `jq`. There is no `package.json` and nothing to install |
+| Maintainers | Node 24 (`.node-version` is the authority), [`reuse`](https://reuse.software/), `shellcheck` and `jq`. There is no `package.json` at the root. The linter installs from `tools/lint` with `npm ci --ignore-scripts` |
 
 ## Versioning policy
 
@@ -207,6 +207,7 @@ and run:
 | `node source/docs-kit/build.mjs --check` | Build the docs site and fail on a broken link, an unlisted page, a hand-edited payload file or doc-versus-payload drift. CI runs this |
 | `node source/docs-kit/build.mjs --out _site` | Write the docs site |
 | `bash -n bin/*.sh && shellcheck bin/*.sh` | Lint the shell scripts |
+| `npm ci --ignore-scripts --prefix tools/lint`, then `tools/lint/node_modules/.bin/biome lint .` | Lint the JavaScript. CI runs this |
 | `reuse lint` | The REUSE licensing check |
 
 Change `source/dtcg/` and regenerate. Never edit `tokens.css` or `SHA256SUMS` by

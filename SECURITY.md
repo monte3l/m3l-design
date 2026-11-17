@@ -88,7 +88,7 @@ static analysis (SAST), meaning CodeQL. It describes what is enforced today.
 | CodeQL default setup, `javascript-typescript` and `actions`. Its `CodeQL` check is required on `main` | Every push and pull request | Fails the PR on a new alert of error severity or critical or high security severity, which is GitHub's default threshold |
 | Gitleaks and GitHub secret scanning with push protection | Every push and pull request, and weekly in full | Fails the PR, or blocks the push |
 | ScanCode (`scancode.yml`) with `policies.yml` | Every push and pull request | Fails the check on a license in a file that the policy does not list. Not a required check, because the action is still beta |
-| Dependabot alerts, security updates and version updates (`dependabot.yml`) | Weekly, for GitHub Actions and the `tools/deploy` npm directory | Opens an update PR. An alert on a locked dependency published after a merge is how a late advisory is caught |
+| Dependabot alerts, security updates and version updates (`dependabot.yml`) | Weekly, for GitHub Actions and the `tools/deploy` and `tools/lint` npm directories | Opens an update PR. An alert on a locked dependency published after a merge is how a late advisory is caught |
 | zizmor and actionlint (`workflow-lint.yml`) | Every change to a workflow | Fails the check. It runs only when a workflow changes, so it cannot be a required check |
 
 ### Remediation thresholds
@@ -109,7 +109,7 @@ linters are not required, and a reviewer treats a failure in either as blocking.
 ### Process
 
 1. **Identify.** The checks above, plus Dependabot and GitHub security advisories.
-2. **Prioritize.** Severity first, then whether the code ships. The release payload has no dependency, so a finding in the one npm tool directory (`tools/deploy`, which runs only in the deploy job) affects CI, not a consumer.
+2. **Prioritize.** Severity first, then whether the code ships. The release payload has no dependency, so a finding in an npm tool directory (`tools/deploy`, which runs only in the deploy job, or `tools/lint`, which runs only in the `Checks` lane) affects CI, not a consumer.
 3. **Remediate.** Update, replace or remove the dependency by moving its pinned version.
 4. **Accept, only when nothing else works.** A finding that does not affect the project and has no patched version is dismissed in GitHub with its reason, and a vulnerability judged not exploitable is recorded under the next heading.
 

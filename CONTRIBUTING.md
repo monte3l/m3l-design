@@ -14,7 +14,7 @@ open one, the issue is the contribution, and a collaborator will pick it up.
 | [`reuse`](https://reuse.software/) | The licensing check |
 | `shellcheck` and `jq` | The shell and JSON checks |
 
-There is no `package.json` and nothing to install.
+There is no `package.json` at the root, and nothing to install to use or sync the system. To lint, run `npm ci --ignore-scripts --prefix tools/lint` once.
 
 ## Setup
 
@@ -69,7 +69,8 @@ force-push your own branch.
    `node bin/build-design-tokens.mjs --check`,
    `node --test --experimental-test-coverage --test-coverage-lines=80 --test-coverage-branches=80`,
    `sha256sum -c --quiet SHA256SUMS` (`shasum -a 256 -c` on macOS),
-   `node source/docs-kit/build.mjs --check`, `shellcheck bin/*.sh` and `reuse lint`.
+   `node source/docs-kit/build.mjs --check`, `tools/lint/node_modules/.bin/biome lint .`,
+   `shellcheck bin/*.sh` and `reuse lint`.
 4. Add tests for new behavior and a regression test for a fix. A token change
    also needs its `source/tokens.json` entry and a Conventional Commit whose
    type is its semver bump (`feat`, `fix`, or `!` for a removal or rename) with
@@ -123,7 +124,7 @@ but checking them does not, so no test depends on it.
 
 | What | The standard | Enforced by |
 | --- | --- | --- |
-| JavaScript | ES modules only (no `require`, no `module.exports`), no dependency in the resolver or the docs kit, an inline SPDX header on every file | Review, and `reuse lint` for the header |
+| JavaScript | Biome's recommended rules plus `useTemplate` as an error (`biome.json`), ES modules only (no `require`, no `module.exports`), no dependency in the resolver or the docs kit, an inline SPDX header on every file | The `Checks` lane (Biome), and `reuse lint` for the header |
 | Shell | `shellcheck` clean, `bash -n` clean, and `set -euo pipefail` at the top | The `Checks` lane for the first two, review for the third |
 | Tokens and docs | Canonical tokens in `source/dtcg/`, generated files never hand-edited, every text and UI pairing at WCAG 2.2 AA | The `Checks` lane, the docs kit's `--check` and the resolver tests |
 | Workflows | `actionlint` and `zizmor` clean, every action pinned to a commit SHA, per-job `permissions:` | `workflow-lint.yml` |
@@ -132,7 +133,7 @@ but checking them does not, so no test depends on it.
 | Commit messages | Conventional Commits, signed off and signed | The `Commit lint` and `DCO sign-off` jobs, and the `main` ruleset |
 | Markdown | The m3l-design rules: bold, never italics or underlines, an alert matched to severity and never more than two in a row, tables for tabular data | Review, and the docs kit's `--check` |
 
-A change that breaks a row with an enforcing check fails a required check. JavaScript style has no linter yet: it is checked in review.
+A change that breaks a row with an enforcing check fails a required check. Biome runs as a linter only: its formatter is off, so layout follows `.editorconfig` and is checked in review.
 
 ## Code review
 
@@ -150,7 +151,7 @@ Every pull request needs one approval from a code owner other than its author, a
 
 The resolver and the docs kit have none, and that is a rule of the project: both are copied into every consumer. A tool for CI lives in its own directory under `tools/` with a committed lockfile, installs with `npm ci --ignore-scripts`, and is explained in `SECURITY.md` if it holds a secret. Open an issue first.
 
-**How a dependency is selected, obtained and tracked.** It is selected in the issue, by whether the project can do without it, whether it is maintained and whether its license is on the allow-list in `dependency-review.yml`. It is obtained from the npm registry through the lockfile, which pins an exact version and an integrity hash. It is tracked by Dependabot, which proposes updates weekly after a cooldown, and by Dependency Review, which fails a pull request that adds a vulnerable or disallowed one. Today the only one is the deploy tool in `tools/deploy`.
+**How a dependency is selected, obtained and tracked.** It is selected in the issue, by whether the project can do without it, whether it is maintained and whether its license is on the allow-list in `dependency-review.yml`. It is obtained from the npm registry through the lockfile, which pins an exact version and an integrity hash. It is tracked by Dependabot, which proposes updates weekly after a cooldown, and by Dependency Review, which fails a pull request that adds a vulnerable or disallowed one. Today the only ones are the deploy tool in `tools/deploy` and the linter in `tools/lint`.
 
 ## Account security
 

@@ -20,6 +20,7 @@ The asset is the integrity of what lands in other repositories: `design/source/`
 | CI is turned against the repository | Template injection, a pinned action replaced, a leaked token | Every workflow starts from `permissions: {}`, read-only or `read-all` and widens per job. Every checkout sets `persist-credentials: false`, every action is pinned to a commit SHA, no workflow uses `pull_request_target` or `workflow_run`, and zizmor and actionlint run on every workflow change | `.github/workflows/`, `workflow-lint.yml` |
 | A secret leaks | A token committed or logged | Secret scanning with push protection, and Gitleaks on every push and pull request. The inventory is in `SECURITY.md` | `SECURITY.md#secrets-and-credentials` |
 | A dependency of the deploy tool is compromised | A malicious version of `wrangler` | An exact version and integrity hashes in a committed lockfile, installed with `npm ci --ignore-scripts`, and a one-day Dependabot cooldown. It runs only in the deploy job | `tools/deploy/`, `docs.yml`, `.github/dependabot.yml` |
+| A dependency of the linter is compromised | A malicious version of Biome | The same controls: an exact version and integrity hashes in a committed lockfile, `npm ci --ignore-scripts` and a one-day cooldown. It runs only in the `Checks` lane, which holds a read-only token and no secret | `tools/lint/`, `verify.yml`, `.github/dependabot.yml` |
 | Script injected into the docs site | A component preview with an inline script or event handler | The build fails on one, because the site's content security policy allows neither | `scripts/site/gallery.mjs`, `source/docs-kit/` |
 
 ## Trust boundaries
@@ -36,7 +37,7 @@ The boundaries are drawn in [`architecture.md`](architecture.md#trust-boundaries
 | Open design | The repository, the scripts, the policies and this document are public. Nothing depends on obscurity |
 | Separation of privilege | A change needs an author, a different approver, signed commits and passing checks. A release needs a person to merge the release pull request that the App opens, and publishing happens only after the assets are attested |
 | Least privilege | Workflows start from `permissions: {}` or read-only. The deploy runs in an environment restricted to `main`, and the App tokens are minted for one repository |
-| Least common mechanism | The only npm tool lives in its own directory with its own lockfile, so it shares nothing with the scripts or the resolver |
+| Least common mechanism | Each npm tool (`tools/deploy` and `tools/lint`) lives in its own directory with its own lockfile, so neither shares anything with the other, the scripts or the resolver |
 | Psychological acceptability | One command per task, `--dry-run` on the sync, and the same checks run locally and in CI |
 
 ## Common implementation weaknesses countered
