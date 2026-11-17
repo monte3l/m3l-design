@@ -48,8 +48,13 @@ jobs:
       - name: Docs site builds, links resolve and docs match the payload
         run: node source/docs-kit/build.mjs --check
 
-      - name: Resolver parity and credit files
-        run: node --test
+      # The tests, with an 80% floor on lines and branches over the project's
+      # JavaScript: the scripts, the resolver and the docs kit. The gate is
+      # Node's own, so it needs no dependency. Node reports only the files a test
+      # loads, so a new script needs a test that loads it. Raise the floor when
+      # coverage rises, never lower it to merge.
+      - name: Tests and coverage
+        run: node --test --experimental-test-coverage --test-coverage-lines=80 --test-coverage-branches=80
 
       - name: Script syntax and shellcheck
         run: |
