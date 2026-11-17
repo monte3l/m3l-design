@@ -70,5 +70,5 @@ Nothing is sent anywhere except to GitHub. From a consumer the script reads its 
 | Contributors without access | Untrusted | They can open an issue and nothing else |
 | GitHub (repository, releases, Actions) | Trusted infrastructure | The project cannot defend against its compromise. Releases are immutable and attested to narrow what it could change after the fact |
 | Cloudflare | Trusted infrastructure, for the docs site only | A compromise could change the site, not a release. `check-live.mjs` would notice a difference from the build |
-| Third-party actions and tools | Trusted only when pinned | Every action is pinned to a commit SHA, and the one npm tool installs from a lockfile with integrity hashes |
+| Third-party actions and tools | Trusted only when pinned | Every action is pinned to a commit SHA, and the npm tools install from lockfiles with integrity hashes |
 | A consumer's repository | Not trusted by the script | The script writes only the paths above and executes no file from the consumer. It does run `git status` there to print what changed, and `git` reads the consumer's own git configuration |

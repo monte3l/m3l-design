@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-Node 24 (`.node-version`), no `package.json`, nothing to install.
+Node 24 (`.node-version`), no `package.json` at the root. Nothing to install to use or sync the system, and the linter installs from `tools/lint` with `npm ci --ignore-scripts`.
 
 | Command | What it does |
 | --- | --- |
@@ -19,6 +19,7 @@ Node 24 (`.node-version`), no `package.json`, nothing to install.
 | `node bin/build-brand.mjs --social <dir>` | Render one 1280x640 card per repository into `<dir>`, outside the repo, for upload in each repository's settings |
 | `node --test` | Resolver parity tests, credit-file checks and the docs kit tests |
 | `node --test --experimental-test-coverage --test-coverage-lines=80 --test-coverage-branches=80` | What the `Checks` lane runs: the same tests, failing below 80% of lines or branches. Coverage was about 85% of lines and 87% of branches when the gate was added. It counts JavaScript only, so the shell scripts are covered by `test/scripts.test.mjs` behavior tests and not by line coverage |
+| `tools/lint/node_modules/.bin/biome lint .` | Lint all the JavaScript with the version pinned in `tools/lint` (run `npm ci --ignore-scripts --prefix tools/lint` first). CI runs this with `--error-on-warnings`. Biome is a linter only here: `biome.json` turns its formatter off. A finding in `source/` is a payload change, so it ships as a `fix` |
 | `node source/docs-kit/build.mjs --check` | Build this repository's docs site and gate it: links, page coverage, `SHA256SUMS`, local CSS, parity with the payload. CI runs this |
 | `node source/docs-kit/build.mjs --out _site` | Write the docs site |
 | `node source/docs-kit/check-live.mjs --site _site` | Fetch every page and asset from design.monte3l.com and fail unless each matches `_site` byte for byte, headers included. `--metadata` compares the manifest with the GitHub repository's settings |

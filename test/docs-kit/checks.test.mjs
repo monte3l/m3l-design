@@ -212,23 +212,23 @@ describe("alertRunProblems", () => {
 
   it("allows two alerts in a row, with or without blank lines between", () => {
     assert.deepEqual(alertRunProblems("a.md", alert("NOTE") + alert("TIP")), []);
-    assert.deepEqual(alertRunProblems("a.md", alert("NOTE") + "\n" + alert("TIP")), []);
+    assert.deepEqual(alertRunProblems("a.md", `${alert("NOTE")}\n${alert("TIP")}`), []);
   });
 
   it("fails on three, once", () => {
-    const md = alert("NOTE") + "\n" + alert("TIP") + "\n" + alert("WARNING") + "\n" + alert("CAUTION");
+    const md = `${alert("NOTE")}\n${alert("TIP")}\n${alert("WARNING")}\n${alert("CAUTION")}`;
     assert.deepEqual(alertRunProblems("a.md", md), ["a.md: more than two GitHub alerts in a row"]);
   });
 
   it("resets the run on prose between alerts", () => {
-    const md = alert("NOTE") + alert("TIP") + "\nSome prose.\n\n" + alert("WARNING") + alert("IMPORTANT");
+    const md = `${alert("NOTE") + alert("TIP")}\nSome prose.\n\n${alert("WARNING")}${alert("IMPORTANT")}`;
     assert.deepEqual(alertRunProblems("a.md", md), []);
   });
 
   it("ignores alerts inside fenced code", () => {
-    const md = "```md\n" + alert("NOTE") + alert("TIP") + alert("WARNING") + "```\n";
+    const md = `\`\`\`md\n${alert("NOTE")}${alert("TIP")}${alert("WARNING")}\`\`\`\n`;
     assert.deepEqual(alertRunProblems("a.md", md), []);
-    const tilde = "~~~\n" + alert("NOTE").repeat(3) + "~~~\n";
+    const tilde = `~~~\n${alert("NOTE").repeat(3)}~~~\n`;
     assert.deepEqual(alertRunProblems("a.md", tilde), []);
   });
 

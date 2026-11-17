@@ -19,7 +19,7 @@ import {
 
 const pick = (rand, list) => list[Math.floor(rand() * list.length)];
 const LOWER = "abcdefghijklmnopqrstuvwxyz";
-const ALNUM = LOWER + "0123456789";
+const ALNUM = `${LOWER}0123456789`;
 
 /** A label shaped like `^[a-z][a-z0-9]{0,5}$`. */
 function label(rand) {
@@ -43,7 +43,7 @@ describe("hashInlineScript: differential check against node:crypto", () => {
     for (let run = 0; run < 200; run += 1) {
       let source = "";
       for (let i = 1 + Math.floor(rand() * 60); i > 0; i -= 1) source += String.fromCodePoint(1 + Math.floor(rand() * 0x2fff));
-      const expected = "sha256-" + createHash("sha256").update(source, "utf8").digest("base64");
+      const expected = `sha256-${createHash("sha256").update(source, "utf8").digest("base64")}`;
       expect(hashInlineScript(source)).toBe(expected);
     }
   });

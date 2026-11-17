@@ -26,3 +26,17 @@ updates:
       prefix: ci
     labels:
       - dependencies
+
+  # tools/lint/ pins the exact Biome version the Checks lane lints with,
+  # through a committed lockfile. It holds no secret, so it gets the same
+  # one-day cooldown as the other npm tool.
+  - package-ecosystem: npm
+    directory: /tools/lint
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 1
+    commit-message:
+      prefix: ci
+    labels:
+      - dependencies
