@@ -9,9 +9,10 @@ name: Docs
 #
 # Cloudflare has no GitHub OIDC, so the deploy job authenticates with a
 # narrowly scoped API token (Workers Scripts: Edit + Workers Routes: Edit on
-# the monte3l.com zone only), stored as a `docs-cloudflare` environment secret
-# restricted to `main`. The one-time setup is in the org .github repo's
-# blueprint/docs-site.md.
+# the monte3l.com zone only). It is an organization secret shared with this
+# repository, and the deploy job runs in the `docs-cloudflare` environment,
+# restricted to `main`, which holds no secret itself. See SECURITY.md. The
+# one-time setup is in the org .github repo's blueprint/docs-site.md.
 #
 # After the deploy, the `smoke` job fetches every page, the 404 page and every
 # asset from the live site and requires each to equal the file the `build` job
