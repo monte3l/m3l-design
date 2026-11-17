@@ -82,7 +82,7 @@ export default async function generate({ root }) {
   for (const [title, test] of GROUPS) {
     const rows = names.filter((name) => test.test(name));
     if (rows.length === 0) continue;
-    rows.forEach((name) => seen.add(name));
+    for (const name of rows) seen.add(name);
     const id = title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
     html += `<h2 id="${id}">${esc(title)}</h2>\n<table>\n<thead><tr><th>Token</th><th>Light</th><th>Dark</th></tr></thead>\n<tbody>\n`;
     for (const name of rows) {

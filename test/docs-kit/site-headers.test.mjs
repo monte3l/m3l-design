@@ -84,7 +84,7 @@ function expectedHeadersFile(scriptHash        , imageHosts          )         {
     "/assets/source/fonts/*",
     "  Cache-Control: public, max-age=31536000, immutable",
   ];
-  return lines.join("\n") + "\n";
+  return `${lines.join("\n")}\n`;
 }
 
 describe("HeadersLimitError", () => {
@@ -100,7 +100,7 @@ describe("hashInlineScript", () => {
   it("matches an independently computed sha256(base64) hash of the same UTF-8 bytes", () => {
     const source = "console.log('site-headers test fixture');";
     const expected =
-      "sha256-" + createHash("sha256").update(source, "utf8").digest("base64");
+      `sha256-${createHash("sha256").update(source, "utf8").digest("base64")}`;
     expect(lib.hashInlineScript(source)).toBe(expected);
   });
 
@@ -413,13 +413,13 @@ describe("assertHeadersLimits", () => {
   });
 
   it("passes with exactly 100 rule blocks", () => {
-    expect(lib.assertHeadersLimits(blocks(100, 1) + "\n")).toBeUndefined();
+    expect(lib.assertHeadersLimits(`${blocks(100, 1)}\n`)).toBeUndefined();
   });
 
   it("throws HeadersLimitError naming the count and the 100-rule limit at 101 blocks", () => {
     let thrown         ;
     try {
-      lib.assertHeadersLimits(blocks(101, 1) + "\n");
+      lib.assertHeadersLimits(`${blocks(101, 1)}\n`);
     } catch (error) {
       thrown = error;
     }
@@ -429,7 +429,7 @@ describe("assertHeadersLimits", () => {
   });
 
   it("does not count indented header lines or blank lines", () => {
-    const text = blocks(100, 5).replaceAll("\n\n", "\n\n\n") + "\n";
+    const text = `${blocks(100, 5).replaceAll("\n\n", "\n\n\n")}\n`;
     expect(countRuleBlocks(text)).toBe(100);
     expect(lib.assertHeadersLimits(text)).toBeUndefined();
   });
