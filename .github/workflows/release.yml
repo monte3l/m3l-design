@@ -47,7 +47,7 @@ jobs:
     if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     permissions:
       contents: read
-    uses: monte3l/.github/.github/workflows/release-prepare.yml@ee47e005c774a2efae036a7b3201910e4eaf9e6f # release-baseline
+    uses: monte3l/.github/.github/workflows/release-prepare.yml@b9a540773109d1dafe17da440f8b76ef8c474718 # release-baseline
     secrets:
       RELEASE_APP_CLIENT_ID: ${{ secrets.RELEASE_APP_CLIENT_ID }}
       RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
@@ -92,7 +92,7 @@ jobs:
       contents: write
       id-token: write
       attestations: write
-    uses: monte3l/.github/.github/workflows/release-finalize.yml@ee47e005c774a2efae036a7b3201910e4eaf9e6f # release-baseline
+    uses: monte3l/.github/.github/workflows/release-finalize.yml@b9a540773109d1dafe17da440f8b76ef8c474718 # release-baseline
     with:
       tag: ${{ needs.prepare.outputs.tag_name }}
       # Opens a re-sync pull request in every repository that vendors this design
