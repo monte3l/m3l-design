@@ -1,0 +1,23 @@
+{
+  "$schema": "./tools/lint/node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": {
+    "includes": [
+      "bin/**/*.mjs",
+      "scripts/**/*.mjs",
+      "test/**/*.mjs",
+      "source/lib/**/*.mjs",
+      "source/docs-kit/**/*.mjs",
+      "docs.config.mjs"
+    ]
+  },
+  "formatter": { "enabled": false },
+  "assist": { "enabled": false },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "style": { "useTemplate": "error" }
+    }
+  }
+}

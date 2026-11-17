@@ -61,6 +61,14 @@ jobs:
           bash -n bin/*.sh
           shellcheck bin/*.sh
 
+      # Biome as a linter only (biome.json): its formatter is off. The version is
+      # pinned with an integrity hash in tools/lint/package-lock.json, and the
+      # install runs no package script.
+      - name: JavaScript lint
+        run: |
+          npm ci --ignore-scripts --prefix tools/lint
+          tools/lint/node_modules/.bin/biome lint --error-on-warnings .
+
       - name: JSON files parse
         run: |
           find source artifact -name '*.json' -print0 \

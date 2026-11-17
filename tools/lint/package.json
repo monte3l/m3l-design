@@ -1,0 +1,9 @@
+{
+  "name": "m3l-design-lint-tools",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pins the exact Biome version the Checks lane lints the JavaScript with, so the pin is verified by a committed lockfile's integrity hash. CI only: nothing here ships in a release.",
+  "devDependencies": {
+    "@biomejs/biome": "2.6.7"
+  }
+}
