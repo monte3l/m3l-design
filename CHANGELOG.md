@@ -6,6 +6,13 @@ All notable changes to m3l-design. The format follows
 the release workflow from the Conventional Commits since the last release,
 grouped as Added, Changed and Fixed; the sections before them are as written.
 
+## [1.3.3](https://github.com/monte3l/m3l-design/compare/v1.3.2...v1.3.3) (2026-11-17)
+
+
+### Fixed
+
+* **docs-kit:** rename a shadowed helper and use template literals ([a98a247](https://github.com/monte3l/m3l-design/commit/a98a24741e65944447324bc189bde2888668839c))
+
 ## [1.3.2](https://github.com/monte3l/m3l-design/compare/v1.3.1...v1.3.2) (2026-10-23)
 
 
