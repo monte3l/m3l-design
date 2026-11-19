@@ -6,6 +6,14 @@ All notable changes to m3l-design. The format follows
 the release workflow from the Conventional Commits since the last release,
 grouped as Added, Changed and Fixed; the sections before them are as written.
 
+## [1.4.0](https://github.com/monte3l/m3l-design/compare/v1.3.3...v1.4.0) (2026-11-19)
+
+
+### Added
+
+* **docs-kit:** add llms.txt, markdown copies and a sitemap ([ea3a378](https://github.com/monte3l/m3l-design/commit/ea3a378e2ccfcb19c0d727ca7754999c6d66e14f))
+* **docs-kit:** write llms.txt, markdown copies and a sitemap for agents ([dbb05e0](https://github.com/monte3l/m3l-design/commit/dbb05e0472b8d3fcf44c646fc225c54b5b064319))
+
 ## [1.3.3](https://github.com/monte3l/m3l-design/compare/v1.3.2...v1.3.3) (2026-11-17)
 
 
