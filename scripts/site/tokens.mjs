@@ -100,5 +100,13 @@ export default async function generate({ root }) {
   if (rest.length > 0) {
     html += `<h2 id="other">Other</h2>\n<ul>\n${rest.map((n) => `<li><code class="code m3l-code-inline">--${esc(n)}</code>: <code class="code m3l-code-inline">${esc(light.get(n))}</code></li>`).join("\n")}\n</ul>\n`;
   }
-  return [{ out: "tokens.html", group: "Foundations", label: "Token reference", html }];
+  return [
+    {
+      out: "tokens.html",
+      group: "Foundations",
+      label: "Token reference",
+      summary: "Every colour, type, spacing, radius and motion token, with its light and dark value",
+      html,
+    },
+  ];
 }
