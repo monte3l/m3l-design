@@ -434,7 +434,15 @@ describe("build.mjs agent-readable files", () => {
   it("exits 2 for a generated page that cannot be named, or that collides", async () => {
     const generated = async (pages) => {
       const root = await agentFixture(`  llms: { description: "d" },\n  generators: ["gen.mjs"],\n`);
-      await put(root, "gen.mjs", `export default async () => ${JSON.stringify(pages)};\n`);
+      // The module is fixed code; only the data varies, and it travels as JSON, not spliced into source.
+      await put(root, "gen.json", JSON.stringify(pages));
+      await put(
+        root,
+        "gen.mjs",
+        `import { readFile } from "node:fs/promises";
+export default async () => JSON.parse(await readFile(new URL("./gen.json", import.meta.url), "utf8"));
+`,
+      );
       git(root, "add", "-A");
       return root;
     };
