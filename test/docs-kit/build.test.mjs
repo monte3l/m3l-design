@@ -278,3 +278,170 @@ describe("build.mjs --check end to end", () => {
     assertFails(both, "exclusive", 2);
   });
 });
+
+const ONE_PAGE = `pages: [{ src: "README.md", out: "index.html", group: "Start", label: "Home" }],`;
+const TWO_PAGES = `pages: [{ src: "README.md", out: "index.html", group: "Start", label: "Home", summary: "The home page" }, { src: "docs/more.md", out: "more.html", group: "Start", label: "More" }],`;
+
+/** A fixture with two pages that link to each other, plus `extra` config lines. */
+async function agentFixture(extra = "") {
+  const root = await fixture();
+  await put(root, "README.md", "# Fixture\n\nSee [more](docs/more.md), the [file](design/tokens.css) and [the web](https://example.com/).\n");
+  await put(root, "docs/more.md", "# More\n\nBack to the [home page](../README.md#fixture).\n");
+  await put(root, "docs.config.mjs", CONFIG.replace(ONE_PAGE, TWO_PAGES).replace("  manifest:", `${extra}  manifest:`));
+  assert.equal(git(root, "add", "-A").status, 0);
+  return root;
+}
+
+const build = (root) => spawnSync(process.execPath, [BUILD, "--out", "_site"], { cwd: root, encoding: "utf8" });
+const read = (root, rel) => readFile(path.join(root, rel), "utf8");
+
+describe("build.mjs agent-readable files", () => {
+  it("writes nothing for agents unless llms or sitemap is set", async () => {
+    const root = await fixture();
+    assert.equal(build(root).status, 0);
+    for (const file of ["llms.txt", "llms-full.txt", "sitemap.xml", "index.md"]) {
+      await assert.rejects(read(root, `_site/${file}`), { code: "ENOENT" }, file);
+    }
+    assert.doesNotMatch(await read(root, "_site/index.html"), /describedby|text\/markdown/);
+  });
+
+  it("writes a markdown copy of every page, llms.txt and a sitemap, with links that work from the copy", async () => {
+    const root = await agentFixture(`  llms: { description: "A fixture." },\n  sitemap: true,\n`);
+    const result = build(root);
+    assert.equal(result.status, 0, result.stderr);
+
+    const index = await read(root, "_site/index.md");
+    assert.match(index, /\[more\]\(more\.md\)/, "a link to another page goes to that page's copy");
+    assert.match(index, /\[file\]\(https:\/\/github\.com\/acme\/fixture\/blob\/main\/design\/tokens\.css\)/, "a repository file goes to GitHub");
+    assert.match(index, /\[the web\]\(https:\/\/example\.com\/\)/, "an external link is untouched");
+    assert.match(await read(root, "_site/more.md"), /\[home page\]\(index\.md#fixture\)/, "an anchor survives");
+
+    const llms = await read(root, "_site/llms.txt");
+    assert.match(llms, /^# Fixture\n\n> A fixture\.\n\n## Start\n\n/);
+    assert.match(llms, /- \[Home\]\(https:\/\/docs\.example\.com\/index\.md\): The home page\n/);
+    assert.match(llms, /- \[More\]\(https:\/\/docs\.example\.com\/more\.md\)\n/);
+
+    const sitemap = await read(root, "_site/sitemap.xml");
+    assert.match(sitemap, /<loc>https:\/\/docs\.example\.com\/<\/loc>/);
+    assert.match(sitemap, /<loc>https:\/\/docs\.example\.com\/more<\/loc>/);
+    await assert.rejects(read(root, "_site/llms-full.txt"), { code: "ENOENT" }, "llms-full.txt is its own opt-in");
+  });
+
+  it("points each page at its copy and at llms.txt, and the 404 page at llms.txt", async () => {
+    const root = await agentFixture(`  llms: { description: "A fixture." },\n`);
+    assert.equal(build(root).status, 0);
+    const home = await read(root, "_site/index.html");
+    assert.match(home, /<link rel="describedby" href="llms\.txt">/);
+    assert.match(home, /<link rel="alternate" type="text\/markdown" href="index\.md">/);
+    assert.match(await read(root, "_site/404.html"), /<link rel="describedby" href="\/llms\.txt">/);
+    assert.doesNotMatch(await read(root, "_site/404.html"), /text\/markdown/);
+  });
+
+  it("writes llms-full.txt, every copy after its URL, only when llms.full is true", async () => {
+    const root = await agentFixture(`  llms: { description: "A fixture.", full: true },\n`);
+    assert.equal(build(root).status, 0);
+    const full = await read(root, "_site/llms-full.txt");
+    assert.match(full, /^# Fixture\n\n> A fixture\.\n\n---\n\nSource: https:\/\/docs\.example\.com\/index\.md\n\n# Fixture/);
+    assert.match(full, /Source: https:\/\/docs\.example\.com\/more\.md\n\n# More/);
+  });
+
+  it("copies a generated page only when it returns markdown, and links the others to their page", async () => {
+    const root = await agentFixture(`  llms: { description: "A fixture." },\n  generators: ["gen.mjs"],\n`);
+    await put(
+      root,
+      "gen.mjs",
+      `export default async () => [
+  { out: "gen.html", group: "Start", label: "Generated", summary: "Has a copy", html: '<h1 id="generated">Generated</h1>', markdown: "# Generated\\n\\nText.\\n" },
+  { out: "plain.html", group: "Start", label: "Plain", html: '<h1 id="plain">Plain</h1>' },
+];
+`,
+    );
+    git(root, "add", "-A");
+    assert.equal(build(root).status, 0);
+    assert.equal(await read(root, "_site/gen.md"), "# Generated\n\nText.\n");
+    await assert.rejects(read(root, "_site/plain.md"), { code: "ENOENT" });
+    const llms = await read(root, "_site/llms.txt");
+    assert.match(llms, /- \[Generated\]\(https:\/\/docs\.example\.com\/gen\.md\): Has a copy\n/);
+    assert.match(llms, /- \[Plain\]\(https:\/\/docs\.example\.com\/plain\)\n/);
+    const plain = await read(root, "_site/plain.html");
+    assert.match(plain, /describedby/);
+    assert.doesNotMatch(plain, /text\/markdown/);
+  });
+
+  it("passes --check, which also builds the files", async () => {
+    const root = await agentFixture(`  llms: { description: "A fixture.", full: true },\n  sitemap: true,\n`);
+    const result = check(root);
+    assert.equal(result.status, 0, result.stderr);
+  });
+
+  it("fails --check on a link a copy cannot follow, such as one split across lines", async () => {
+    const root = await agentFixture(`  llms: { description: "A fixture." },\n`);
+    await put(root, "README.md", "# Fixture\n\nSee [a link\nthat wraps](docs/more.md) here.\n");
+    git(root, "add", "-A");
+    assertFails(check(root), `index.md: link "docs/more.md" is not external, an anchor or a page of the site`);
+  });
+
+  it("exits 2 for an invalid llms config, a page that cannot have a copy, and a bad generated page", async () => {
+    assertFails(check(await agentFixture(`  llms: {},\n`)), `"llms.description" must be a non-empty single line`, 2);
+
+    const root = await agentFixture(`  llms: { description: "d" },\n`);
+    await put(root, "docs.config.mjs", (await read(root, "docs.config.mjs")).replace(`out: "more.html"`, `out: "more.txt"`));
+    assertFails(check(root), `must end in .html when "llms" is set`, 2);
+
+    const gen = await agentFixture(`  llms: { description: "d" },\n  generators: ["gen.mjs"],\n`);
+    await put(gen, "gen.mjs", `export default async () => [{ out: "g.html", group: "Start", label: "G", html: '<h1 id="g">G</h1>', markdown: 7 }];\n`);
+    git(gen, "add", "-A");
+    assertFails(check(gen), `"markdown" must be a string`, 2);
+  });
+
+  it("rewrites a link in a nested page's copy, and points its head at the root's llms.txt", async () => {
+    const root = await agentFixture(`  llms: { description: "A fixture." },\n`);
+    await put(root, "docs.config.mjs", (await read(root, "docs.config.mjs")).replace(`out: "more.html"`, `out: "docs/more.html"`));
+    git(root, "add", "-A");
+    assert.equal(build(root).status, 0);
+    assert.match(await read(root, "_site/docs/more.md"), /\[home page\]\(\.\.\/index\.md#fixture\)/);
+    const html = await read(root, "_site/docs/more.html");
+    assert.match(html, /<link rel="describedby" href="\.\.\/llms\.txt">/);
+    assert.match(html, /<link rel="alternate" type="text\/markdown" href="more\.md">/);
+    assert.match(await read(root, "_site/index.md"), /\[more\]\(docs\/more\.md\)/);
+  });
+
+  it("rewrites a link that follows a bullet asterisk, and --check passes", async () => {
+    const root = await agentFixture(`  llms: { description: "A fixture." },\n`);
+    await put(root, "README.md", "# Fixture\n\n* [**More**](docs/more.md) tail\n");
+    git(root, "add", "-A");
+    assert.equal(check(root).status, 0, check(root).stderr);
+    assert.equal(build(root).status, 0);
+    assert.match(await read(root, "_site/index.md"), /\* \[\*\*More\*\*\]\(more\.md\) tail/);
+  });
+
+  it("writes only sitemap.xml for sitemap alone: no copies and no head links", async () => {
+    const root = await agentFixture(`  sitemap: true,\n`);
+    assert.equal(build(root).status, 0);
+    assert.match(await read(root, "_site/sitemap.xml"), /<loc>https:\/\/docs\.example\.com\/more<\/loc>/);
+    for (const file of ["llms.txt", "index.md", "more.md"]) await assert.rejects(read(root, `_site/${file}`), { code: "ENOENT" }, file);
+    assert.doesNotMatch(await read(root, "_site/index.html"), /describedby|text\/markdown/);
+  });
+
+  it("writes copies with LF line endings whatever the source has", async () => {
+    const root = await agentFixture(`  llms: { description: "A fixture." },\n`);
+    await put(root, "docs/more.md", "# More\r\n\r\nA line.\r\n");
+    git(root, "add", "-A");
+    assert.equal(build(root).status, 0);
+    assert.equal(await read(root, "_site/more.md"), "# More\n\nA line.\n");
+  });
+
+  it("exits 2 for a generated page that cannot be named, or that collides", async () => {
+    const generated = async (pages) => {
+      const root = await agentFixture(`  llms: { description: "d" },\n  generators: ["gen.mjs"],\n`);
+      await put(root, "gen.mjs", `export default async () => ${JSON.stringify(pages)};\n`);
+      git(root, "add", "-A");
+      return root;
+    };
+    const page = (out, extra = {}) => ({ out, group: "Start", label: "G", html: '<h1 id="g">G</h1>', ...extra });
+    assertFails(check(await generated([page("foo.txt", { markdown: "# X\n" })])), `"out" must end in .html when "llms" is set`, 2);
+    assertFails(check(await generated([page("more.html")])), `"more.html" is the output of two pages`, 2);
+    assertFails(check(await generated([page("llms.txt")])), `"llms.txt" clashes with "llms.txt", a file the kit writes`, 2);
+  });
+});
+

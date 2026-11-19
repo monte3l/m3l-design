@@ -49,5 +49,13 @@ export default async function generate({ root }) {
     html += `<h2 id="${kebab(name)}">${name}</h2>\n<p class="body"><a class="m3l-link" href="${kebab(name)}.html">${name} reference</a></p>\n<div>\n${body}\n</div>\n`;
   }
   if (problems.length > 0) throw new Error(`component gallery: ${problems.join("; ")}`);
-  return [{ out: "components/gallery.html", group: "Components", label: "Gallery", html }];
+  return [
+    {
+      out: "components/gallery.html",
+      group: "Components",
+      label: "Gallery",
+      summary: "Every component rendered in each variant and state, in both themes",
+      html,
+    },
+  ];
 }
