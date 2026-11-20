@@ -64,6 +64,7 @@ Everything under `.claude/` is wired in `.claude/settings.json`, and every hook 
 | `.claude/hooks/guard-no-commonjs.mjs` | PreToolUse, Edit or Write | Blocks `require`, `module.exports` and `__dirname` in JavaScript |
 | `.claude/hooks/release-guard.sh` | PreToolUse, Bash | Asks before `gh release edit --draft=false` or a `gh release create` that is not a draft |
 | `.claude/hooks/guard-double-background.mjs` | PreToolUse, Bash | Blocks `run_in_background` combined with `nohup`, `&` or `disown` |
+| `.claude/hooks/guard-shared-checkout.mjs` | PreToolUse, Edit or Write, and Bash for `git` | Blocks an edit, `git commit` or a new branch in a repository's main checkout, so work happens in a worktree off `origin/main`. `git pull` and `git worktree add` stay allowed. Fails closed (`onFailure: block`) |
 | `.claude/hooks/verify-after-edit.sh` | PostToolUse, Edit or Write | Rebuilds tokens and runs `node --test` after a `source/` edit, and `bash -n` plus shellcheck after a `bin/*.sh` edit. Exits 2 on failure, the only code whose output reaches Claude |
 | `.claude/hooks/write-compact-handoff.mjs` and `.claude/hooks/reinject-compact-handoff.mjs` | PreCompact, SessionStart | Carry a work summary across a compaction through `tmp/` (gitignored) |
 | `.claude/hooks/statusline.mjs`, `.claude/hooks/subagent-statusline.mjs` and `.claude/hooks/statusline-layout.mjs` | `statusLine`, `subagentStatusLine` | Render the status lines. `statusline-layout.mjs` is imported by the other two |
