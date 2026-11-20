@@ -1,6 +1,10 @@
+---
+reviewed: 2026-11-20
+---
+
 # Roadmap
 
-What this project intends to do, and not do, over roughly the next year. It is a file, not an issue board, so it survives outside any one tool. It lists what is still ahead. What has shipped is in the git history and [`CHANGELOG.md`](CHANGELOG.md).
+What this project intends to do, and not do, over roughly the next year. It lists what is still ahead. What has shipped is in the git history and [`CHANGELOG.md`](CHANGELOG.md). Work that can be closed is a GitHub issue, linked from here. What stays true until something changes is written here, so it survives outside any one tool. The rule for which goes where is the org's [tracking policy](https://github.com/monte3l/.github/blob/main/blueprint/tracking.md).
 
 ## Now
 
@@ -9,11 +13,21 @@ What this project intends to do, and not do, over roughly the next year. It is a
 
 ## Next 12 months
 
-- **Reach the OpenSSF Silver badge and Baseline level 3.** The criteria and their answers are in [`.bestpractices.json`](.bestpractices.json). What is left is entering them on bestpractices.dev and keeping them true as the repository changes.
-- **Attach the attestation bundle to each release as an asset.** The shared `release-finalize.yml` in `monte3l/.github` attests every asset, but OpenSSF Scorecard's Signed-Releases check only reads release assets, so it scores 0 here today. Once the shared workflow attaches the bundle, this repository adopts it by bumping its pin.
-- **Grow the bus factor past 1.** The second owner approves every change today. What is missing is a second person who also authors changes and can cut a release alone. No committed date. See [`GOVERNANCE.md`](GOVERNANCE.md#gold-level-criteria-this-project-does-not-meet).
-- **Close the Scorecard gaps that time closes.** `Maintained` clears once the repository is 90 days old, on 2027-01-09, and `Code-Review` rises as reviewed changes outnumber the first commits.
-- **Move the Cloudflare and janitor secrets into their environments.** Today all seven secrets are organization secrets, so any workflow in the repository can read them. As environment secrets of `docs-cloudflare` and `env-janitor`, only a job running on `main` in that environment could. See [`SECURITY.md`](SECURITY.md#storing).
+- **Reach the OpenSSF Silver badge and Baseline level 3.** Tracked in [#60](https://github.com/monte3l/m3l-design/issues/60). The criteria and their answers are in [`.bestpractices.json`](.bestpractices.json). What is left is entering them on bestpractices.dev and keeping them true as the repository changes.
+- **Attach the attestation bundle to each release as an asset.** Tracked in [#59](https://github.com/monte3l/m3l-design/issues/59). The shared `release-finalize.yml` in `monte3l/.github` attests every asset, but OpenSSF Scorecard's Signed-Releases check only reads release assets. Once the shared workflow attaches the bundle, this repository adopts it by bumping its pin.
+- **Move the Cloudflare and janitor secrets into their environments.** Tracked in [#58](https://github.com/monte3l/m3l-design/issues/58). Today all seven secrets are organization secrets, so any workflow in the repository can read them. As environment secrets of `docs-cloudflare` and `env-janitor`, only a job running on `main` in that environment could. See [`SECURITY.md`](SECURITY.md#storing).
+
+## Known limits
+
+- **One person authors changes.** The second owner approves every change today. What is missing is a second person who also authors changes and can cut a release alone. There is no committed date. See [`GOVERNANCE.md`](GOVERNANCE.md#gold-level-criteria-this-project-does-not-meet).
+- **Scorecard's Signed-Releases check scores 0.** It only reads release assets, and the attestation bundle is not one yet. It stays at 0 until [#59](https://github.com/monte3l/m3l-design/issues/59) is done.
+- **Two Scorecard checks are low until time passes.** `Maintained` is expected to clear once the repository is 90 days old, on 2027-01-09, and `Code-Review` rises as reviewed changes outnumber the first commits. Nothing to do but wait.
+
+## Unverified
+
+| Claim | Source | Date |
+| ----- | ------ | ---- |
+| Scorecard's `Maintained` check clears once the repository is 90 days old | Carried over from the previous roadmap. The Scorecard checks documentation was not re-read for this change | 2026-11-20 |
 
 ## What this project will not do
 
