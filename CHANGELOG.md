@@ -6,6 +6,13 @@ All notable changes to m3l-design. The format follows
 the release workflow from the Conventional Commits since the last release,
 grouped as Added, Changed and Fixed; the sections before them are as written.
 
+## [1.5.0](https://github.com/monte3l/m3l-design/compare/v1.4.0...v1.5.0) (2026-11-20)
+
+
+### Added
+
+* **docs-kit:** report page freshness and write sitemap dates ([119b718](https://github.com/monte3l/m3l-design/commit/119b7183e5d8b82297343377bd7a214edee88c57))
+
 ## [1.4.0](https://github.com/monte3l/m3l-design/compare/v1.3.3...v1.4.0) (2026-11-19)
 
 
