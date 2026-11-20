@@ -36,10 +36,12 @@ export default {
     { src: "SECURITY.md", out: "SECURITY.html", group: "Project", label: "Security policy", summary: "How to report a vulnerability, and the findings already accepted" },
     { src: "GOVERNANCE.md", out: "GOVERNANCE.html", group: "Project", label: "Governance", summary: "Who decides what in the project, and how" },
     { src: "ROADMAP.md", out: "ROADMAP.html", group: "Project", label: "Roadmap", summary: "What is planned next and what is deliberately out of scope" },
+    { src: "docs/decisions/README.md", out: "decisions.html", group: "Project", label: "Decisions", summary: "The decisions that shaped the design system, and why" },
     { src: "docs/architecture.md", out: "architecture.html", group: "Project", label: "Architecture", summary: "How the tokens, resolver, components and docs kit fit together" },
     { src: "docs/assurance-case.md", out: "assurance-case.html", group: "Project", label: "Assurance case", summary: "The argument and evidence that the design system meets its security and quality claims" },
   ],
   exclude: [
+    { glob: "docs/decisions/0000-template.md", reason: "decision-record skeleton with placeholders, copied rather than read" },
     { glob: ".claude/**", reason: "Claude Code agents and skills for working in this repository" },
     { glob: "CLAUDE.md", reason: "instructions for coding agents, not reader-facing" },
     { glob: "docs/research/**", reason: "harness-guidance trackers for the Claude Code setup, not reader-facing" },
