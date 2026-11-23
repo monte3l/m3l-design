@@ -39,6 +39,23 @@
         ]
       },
       {
+        "matcher": "NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-secret-writes.mjs\"",
+            "timeout": 30,
+            "onFailure": "block"
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-shared-checkout.mjs\"",
+            "timeout": 30,
+            "onFailure": "block"
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {
