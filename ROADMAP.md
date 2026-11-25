@@ -14,13 +14,13 @@ What this project intends to do, and not do, over roughly the next year. It list
 ## Next 12 months
 
 - **Reach the OpenSSF Silver badge and Baseline level 3.** Tracked in [#60](https://github.com/monte3l/m3l-design/issues/60). The criteria and their answers are in [`.bestpractices.json`](.bestpractices.json). What is left is entering them on bestpractices.dev and keeping them true as the repository changes.
-- **Attach the attestation bundle to each release as an asset.** Tracked in [#59](https://github.com/monte3l/m3l-design/issues/59). The shared `release-finalize.yml` in `monte3l/.github` attests every asset, but OpenSSF Scorecard's Signed-Releases check only reads release assets. Once the shared workflow attaches the bundle, this repository adopts it by bumping its pin.
+- **Confirm Scorecard's Signed-Releases check scores above 0.** Tracked in [#59](https://github.com/monte3l/m3l-design/issues/59). The attestation bundle is attached to each release as an asset: v1.5.0 carries `v1.5.0.sigstore.json`, and this repository's `release.yml` pins the shared `release-finalize.yml` that attaches it. Scorecard only reads release assets, so what is left is checking its score after a scan and then closing the issue.
 - **Move the Cloudflare and janitor secrets into their environments.** Tracked in [#58](https://github.com/monte3l/m3l-design/issues/58). Today all seven secrets are organization secrets, so any workflow in the repository can read them. As environment secrets of `docs-cloudflare` and `env-janitor`, only a job running on `main` in that environment could. See [`SECURITY.md`](SECURITY.md#storing).
 
 ## Known limits
 
 - **One person authors changes.** The second owner approves every change today. What is missing is a second person who also authors changes and can cut a release alone. There is no committed date. See [`GOVERNANCE.md`](GOVERNANCE.md#gold-level-criteria-this-project-does-not-meet).
-- **Scorecard's Signed-Releases check scores 0.** It only reads release assets, and the attestation bundle is not one yet. It stays at 0 until [#59](https://github.com/monte3l/m3l-design/issues/59) is done.
+- **Scorecard's Signed-Releases score is not confirmed.** The attestation bundle is now a release asset (v1.5.0 onward), which the check reads, but the score has not been re-checked. [#59](https://github.com/monte3l/m3l-design/issues/59) stays open until it is.
 - **Two Scorecard checks are low until time passes.** `Maintained` is expected to clear once the repository is 90 days old, on 2027-01-09, and `Code-Review` rises as reviewed changes outnumber the first commits. Nothing to do but wait.
 
 ## Unverified
