@@ -453,3 +453,47 @@ export default async () => JSON.parse(await readFile(new URL("./gen.json", impor
   });
 });
 
+
+describe("build.mjs local images", () => {
+  const SVG = '<svg xmlns="http://www.w3.org/2000/svg"><style>rect{fill:red}</style><rect width="1" height="1"/></svg>\n';
+  const PNG = "\u0089PNG pretend bytes";
+
+  /** Two pages, each with an SVG and a PNG, so a root page and a nested page both resolve them. */
+  async function imageFixture(extra = "") {
+    const root = await agentFixture(extra);
+    await put(root, "docs/views/context.svg", SVG);
+    await put(root, "docs/shot.png", PNG);
+    await put(root, "README.md", "# Fixture\n\n![diagram](docs/views/context.svg)\n\nSee [more](docs/more.md) and the [file](design/tokens.css).\n");
+    await put(root, "docs/more.md", "# More\n\n![diagram](views/context.svg)\n\n![shot](shot.png)\n");
+    assert.equal(git(root, "add", "-A").status, 0);
+    return root;
+  }
+
+  it("copies a referenced svg and png under assets/files and links them from each page", async () => {
+    const root = await imageFixture();
+    const result = build(root);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(await read(root, "_site/assets/files/docs/views/context.svg"), SVG);
+    assert.equal(await read(root, "_site/assets/files/docs/shot.png"), PNG);
+    assert.match(await read(root, "_site/index.html"), /<img src="assets\/files\/docs\/views\/context\.svg" alt="diagram">/);
+    assert.match(await read(root, "_site/more.html"), /<img src="assets\/files\/docs\/shot\.png" alt="shot">/);
+    assert.match(await read(root, "_site/index.html"), /href="https:\/\/github\.com\/acme\/fixture\/blob\/main\/design\/tokens\.css"/, "another file type still goes to GitHub");
+    assert.equal(check(root).status, 0);
+  });
+
+  it("keeps the image link in the markdown copy, and --check passes with llms on", async () => {
+    const root = await imageFixture(`  llms: { description: "A fixture." },\n`);
+    assert.equal(build(root).status, 0);
+    assert.match(await read(root, "_site/index.md"), /!\[diagram\]\(assets\/files\/docs\/views\/context\.svg\)/);
+    assert.match(await read(root, "_site/more.md"), /!\[shot\]\(assets\/files\/docs\/shot\.png\)/);
+    const result = check(root);
+    assert.equal(result.status, 0, result.stderr);
+  });
+
+  it("fails --check on a missing image", async () => {
+    const root = await imageFixture();
+    await put(root, "docs/more.md", "# More\n\n![gone](missing.svg)\n");
+    assert.equal(git(root, "add", "-A").status, 0);
+    assertFails(check(root), 'link target does not exist in the repo: "docs/missing.svg"');
+  });
+});
