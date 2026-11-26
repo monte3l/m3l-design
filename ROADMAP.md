@@ -14,7 +14,6 @@ What this project intends to do, and not do, over roughly the next year. It list
 ## Next 12 months
 
 - **Reach the OpenSSF Silver badge and Baseline level 3.** Tracked in [#60](https://github.com/monte3l/m3l-design/issues/60). The criteria and their answers are in [`.bestpractices.json`](.bestpractices.json). What is left is entering them on bestpractices.dev and keeping them true as the repository changes.
-- **Move the Cloudflare and janitor secrets into their environments.** Tracked in [#58](https://github.com/monte3l/m3l-design/issues/58). Today all seven secrets are organization secrets, so any workflow in the repository can read them. As environment secrets of `docs-cloudflare` and `env-janitor`, only a job running on `main` in that environment could. See [`SECURITY.md`](SECURITY.md#storing).
 
 ## Known limits
 
