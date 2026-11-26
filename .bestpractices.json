@@ -372,5 +372,7 @@
   "external_dependencies_status": "Met",
   "external_dependencies_justification": "The release payload, the resolver and the docs kit have no dependency. The external dependencies are two CI tools, the deploy tool (wrangler) and the linter (Biome), listed in https://github.com/monte3l/m3l-design/blob/main/tools/deploy/package.json and https://github.com/monte3l/m3l-design/blob/main/tools/lint/package.json and pinned with integrity hashes in each package-lock.json.",
   "updateable_reused_components_status": "Met",
-  "updateable_reused_components_justification": "The two CI tools are pinned by committed lockfiles and updated through Dependabot pull requests (weekly, after a one-day cooldown), and every GitHub Action is pinned to a commit SHA that Dependabot also updates: https://github.com/monte3l/m3l-design/blob/main/.github/dependabot.yml."
+  "updateable_reused_components_justification": "The two CI tools are pinned by committed lockfiles and updated through Dependabot pull requests (weekly, after a one-day cooldown), and every GitHub Action is pinned to a commit SHA that Dependabot also updates: https://github.com/monte3l/m3l-design/blob/main/.github/dependabot.yml.",
+  "osps_vm_05_01_status": "Met",
+  "osps_vm_05_01_justification": "The release payload has no dependency. The two npm tools (tools/deploy and tools/lint) are watched by Dependabot weekly (https://github.com/monte3l/m3l-design/blob/main/.github/dependabot.yml), and https://github.com/monte3l/m3l-design/blob/main/.github/workflows/dependency-review.yml fails a PR that adds a high-severity vulnerability. https://github.com/monte3l/m3l-design/blob/main/SECURITY.md#dependency-and-code-scanning-findings is the policy. [dependency_monitoring]"
 }
