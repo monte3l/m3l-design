@@ -182,11 +182,12 @@ defects. Do not "fix" the first one into a standing bypass.
 | Maintained | 0 | Scorecard scores any repository under 90 days old as 0. This one was created on 2026-10-11, so it resolves itself on 2027-01-09 |
 | Fuzzing | 0 | Not applicable. The inputs are CSS, design tokens in JSON and a copy script. The resolver reads this repository's own token files, and `sync-design.sh` verifies a fixed hash list, so no untrusted input reaches a parser. A fuzzing library would also end the repository's no-dependency rule |
 
-Signed-Releases also scores 0, and it is a gap, not an accepted finding.
-Scorecard reads release assets only, and a release here carries GitHub's
-attestation rather than a signature file. Scorecard raises no Code Scanning
-alert for it, so nothing is dismissed. Attaching the attestation bundle to each
-release as an asset is on the [roadmap](ROADMAP.md).
+Signed-Releases scores 4 (scan of 2026-11-25), and it is a gap, not an accepted
+finding. Each release since v1.3.3 carries its attestation bundle
+(`vX.Y.Z.sigstore.json`) as an asset, which Scorecard reads as a signature. The
+rest of the gap is that no release carries a provenance file and v1.3.1 and
+v1.3.2 have no bundle. Scorecard raises no Code Scanning alert for it, so
+nothing is dismissed.
 
 The OpenSSF Best Practices badge is registered, at
 [project 15706](https://www.bestpractices.dev/projects/15706). The Silver and
