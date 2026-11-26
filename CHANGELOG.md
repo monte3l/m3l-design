@@ -6,6 +6,16 @@ All notable changes to m3l-design. The format follows
 the release workflow from the Conventional Commits since the last release,
 grouped as Added, Changed and Fixed; the sections before them are as written.
 
+## [1.6.0](https://github.com/monte3l/m3l-design/compare/v1.5.0...v1.6.0) (2026-11-26)
+
+
+### Added
+
+* **docs-kit:** copy and serve local images referenced from pages ([4be88d6](https://github.com/monte3l/m3l-design/commit/4be88d6ebfee676cd3714d68f6d7e3090c0a8a14))
+* **docs-kit:** copy and serve local images referenced from pages ([e9d5354](https://github.com/monte3l/m3l-design/commit/e9d53543d07dccf40d45b473807ca19d79a97313)), closes [#66](https://github.com/monte3l/m3l-design/issues/66)
+* **tokens:** give color-surface-sunken distinct values in both themes ([0e19c14](https://github.com/monte3l/m3l-design/commit/0e19c1459fc1f460af7f12b8333695fc3ff80088))
+* **tokens:** give color-surface-sunken distinct values in both themes ([1e7589d](https://github.com/monte3l/m3l-design/commit/1e7589dd0abb13c911e870ea319da6e8d34c8aa1)), closes [#73](https://github.com/monte3l/m3l-design/issues/73)
+
 ## [1.5.0](https://github.com/monte3l/m3l-design/compare/v1.4.0...v1.5.0) (2026-11-20)
 
 
