@@ -1,8 +1,6 @@
 #!/usr/bin/env node
-// SPDX-FileCopyrightText: Copyright the m3l-groundwork contributors
-// SPDX-License-Identifier: MIT
 /**
- * PreToolUse blocking (Write|Edit|NotebookEdit): refuse to write a real secret to disk.
+ * PreToolUse blocking (Write|Edit|NotebookEdit|Bash): refuse to write a real secret to disk.
  *
  * CLAUDE.md's Security section requires that no secret or token ever land in
  * source, tests, or fixtures. A CI secret-scanning step is the backstop;
@@ -19,6 +17,12 @@
  *      recognised high-entropy token/private-key literal. References and
  *      placeholders (`${{ secrets.X }}`, `process.env.X`, `<your-token>`, ...)
  *      are NOT flagged -- the point is to catch values, not names.
+ *
+ * A Bash command is checked by text only, best effort, and blocked when in doubt: a command that
+ * names a dotenv file and also writes (redirect, tee, cp, mv, dd, install, ln, touch, truncate, sed -i), a
+ * command it cannot read completely (unclosed quote, escape, eval, source, a shell) that could write, a write
+ * to a target it cannot resolve, and a token literal in the text of a write. It does not follow substitutions,
+ * scripts or wrappers, so it is a backstop, not a sandbox.
  *
  * Detection is deliberately conservative: prefix-anchored token shapes and
  * placeholder exclusion keep false positives off legitimate config/docs
@@ -435,6 +439,120 @@ export function isSecretWrite(filePath, content) {
   return reasons;
 }
 
+// ---- Bash: best effort ---------------------------------------------------------------------------------
+// A shell cannot be parsed completely here, so this is a text check that blocks when in doubt: a command that
+// names a dotenv file and also writes, a command it cannot tokenise that could write, and a token literal in
+// the text of a write. It does not follow substitutions, scripts or wrappers.
+
+const TEMPLATE_SUFFIX = /\.(example|sample|template|dist)$/;
+const COPY_WRITERS = new Set(["tee", "cp", "mv", "dd", "install", "ln", "touch", "truncate"]);
+const CONTENT_WRITERS = new Set(["tee", "dd"]);
+const SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "ash", "fish"]);
+// `$VAR/name` is a known file name in an unknown directory; any other expansion in a target is a dynamic target.
+const KNOWN_DIRECTORY = /^(?:\$\w+|\$\{\w+\})\/[^$`{}*?[\\\s]+$/;
+
+/** Whether any word of `text` is a dotenv file (a name starting `.env`, in any case, that is not a template). */
+export function hasDotenvWord(text) {
+  return text.split(/[\s=:><|;&()"'`]+/).some((part) => {
+    const base = path.basename(part).toLowerCase();
+    return base.startsWith(".env") && !TEMPLATE_SUFFIX.test(base);
+  });
+}
+
+/**
+ * Words of a command (quotes removed, no escapes), with `start` true for the first word of each simple command.
+ * Returns null when a quote never closes.
+ */
+function tokenise(command) {
+  const words = [];
+  let word = null;
+  let quote = "";
+  let start = true;
+  const end = () => {
+    if (word !== null) {
+      words.push({ text: word, start });
+      start = false;
+    }
+    word = null;
+  };
+  for (const c of command) {
+    if (quote !== "") {
+      if (c === quote) quote = "";
+      else word += c;
+    } else if (c === "'" || c === '"') {
+      quote = c;
+      word ??= "";
+    } else if (c === ";" || c === "&" || c === "|" || c === "(" || c === ")" || c === "\n") {
+      end();
+      start = true;
+    } else if (c === " " || c === "\t" || c === "\r") end();
+    else word = (word ?? "") + c;
+  }
+  if (quote !== "") return null;
+  end();
+  return words;
+}
+
+/**
+ * Block reasons for a Bash command (empty when allowed). Best effort, and it blocks when in doubt.
+ *
+ * @param {string} command
+ * @returns {string[]}
+ */
+export function isSecretBash(command) {
+  const tokens = tokenise(command);
+  const words = tokens?.map((t) => t.text) ?? [];
+  const names = words.map((w) => path.basename(w));
+  // A redirect that is not a descriptor copy (`2>&1`) or a write to /dev/null.
+  const text = command.replace(/\d*>&(?:\d+|-)(?=$|[\s;&|()<>])|\d*>>?\s*\/dev\/null(?=$|[\s;&|()<>])/g, " ");
+  const redirect = text.includes(">");
+  const untokenisable = tokens === null || /\$'/.test(command) || /\\/.test(command);
+  // The words are checked, and so is the raw text: tokenising never weakens a check (the results are ORed).
+  const RAW_WRITER = /\b(?:tee|cp|mv|dd|install|ln|touch|truncate)\b/;
+  const rawSedInPlace = /\bsed\b/.test(command) && /(?:^|\s)(?:-[A-Za-z]*i|--in-place(?:=|\b))/.test(command);
+  const sedInPlace = rawSedInPlace || (names.includes("sed") && words.some((w) => /^-[A-Za-z]*i|^--in-place(?:=|$)/.test(w)));
+  const writer = RAW_WRITER.test(command) || names.some((n) => COPY_WRITERS.has(n)) || sedInPlace;
+  const contentWrite = redirect || sedInPlace || /\b(?:tee|dd)\b/.test(command) || names.some((n) => CONTENT_WRITERS.has(n));
+  const dotenv = hasDotenvWord(command) || words.some(hasDotenvWord);
+  const reasons = [];
+  if (dotenv && tokens?.some((t) => t.start && /[$`]/.test(t.text))) reasons.push("a dotenv file named in a command whose name is built by an expansion");
+  if (dotenv && (redirect || writer)) reasons.push("a command that names a dotenv file and writes");
+  if (dotenv && (/\$\(|`|<<(?!<)/.test(command))) reasons.push("a dotenv file named in a command with a substitution or heredoc");
+  // A shell with -c, eval, source, `.` and env -S run text this guard does not read: blocked whatever else is visible.
+  const runsText =
+    tokens === null
+      ? /(?:^|[\s;&|(])(?:eval|source)\s|\b(?:sh|bash|zsh|dash|ksh|ash|fish)\b[^\n]*\s-[A-Za-z]*c|--split-string/.test(command)
+      : tokens.some((t) => ["eval", "source"].includes(path.basename(t.text)) || (t.start && t.text === ".")) ||
+        (names.some((n) => SHELLS.has(n)) && words.some((w) => /^-[A-Za-z]*c/.test(w))) ||
+        words.some((w) => w === "--split-string" || w.startsWith("--split-string=")) ||
+        (names.includes("env") && words.some((w) => /^-[A-Za-z]*S/.test(w)));
+  if (runsText) reasons.push("a shell -c, eval, source, . or env -S: it runs text the guard does not read");
+  // A command it cannot tokenise is blocked outright when it names a dotenv file, holds a secret, or mentions a writer.
+  if (untokenisable && (dotenv || findSecrets(command).length > 0 || /\b(?:sed|tee|dd|cp|mv|install|ln|touch|truncate)\b/.test(command))) {
+    reasons.push("a command the guard cannot tokenise (unclosed quote, escape, $'..') that names a dotenv file, a secret or a writer");
+  }
+  // A shell script or an unreadable command (unclosed quote, escape) is blocked when it could write.
+  const shellScript = tokens !== null && names.some((n) => SHELLS.has(n));
+  if ((untokenisable || shellScript) && (dotenv || redirect || writer)) {
+    reasons.push("a command the guard cannot read completely (unclosed quote, escape, shell) that could write");
+  }
+  if (/<<(?!<)/.test(command) && (dotenv || redirect || writer)) reasons.push("a heredoc in a command that could write");
+  // A target built by an expansion, a glob or a brace list: its name cannot be read.
+  if (redirect || writer) {
+    const dynamic = (target) => /[$`{*?[]/.test(target) && !KNOWN_DIRECTORY.test(target);
+    const targets = [...text.matchAll(/(?:&>>?|\d*>>?\|?&?)[ \t]*([^\s;&|()<>]+)/g)].map((m) => m[1].replace(/["']/g, ""));
+    for (let i = 0; i < words.length; i++) {
+      if (COPY_WRITERS.has(names[i]) || (names[i] === "sed" && sedInPlace)) {
+        for (const w of words.slice(i + 1)) if (!w.startsWith("-") || w.startsWith("of=")) targets.push(w.replace(/^of=/, ""));
+        break;
+      }
+    }
+    if (targets.some(dynamic)) reasons.push("a write target the guard cannot resolve (expansion or glob)");
+  }
+  if (contentWrite && findSecrets(command).length > 0) reasons.push(...findSecrets(command));
+  return reasons;
+}
+
 // Kept as a duplicated, self-contained block in every hook file rather than
 // imported from a shared helper -- each hook stays a single independent
 // file, which keeps this project's hook count easy to reason about against
@@ -469,6 +587,18 @@ if (isEntryPoint()) {
 
   // A notebook edit names its file `notebook_path` and carries `new_source`.
   const ti = input.tool_input ?? {};
+  if (typeof ti.command === "string" && ti.file_path === undefined && ti.notebook_path === undefined) {
+    const bashReasons = isSecretBash(ti.command);
+    if (bashReasons.length === 0) process.exit(0);
+    process.stderr.write(`\
+[guard-secret-writes] Blocked Bash command that writes a secret:
+${bashReasons.map((r) => `  - ${r}`).join("\n")}
+
+Secrets and tokens must never be written to the working tree. Use an env var
+reference, and keep real dotenv files out of the repo (author .env.example).
+`);
+    process.exit(2);
+  }
   const filePath = ti.file_path ?? ti.notebook_path ?? "";
   if (typeof filePath !== "string" || filePath.length === 0) process.exit(0);
 

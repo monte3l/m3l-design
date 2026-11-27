@@ -72,6 +72,18 @@
           },
           {
             "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-secret-writes.mjs\"",
+            "timeout": 30,
+            "onFailure": "block"
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-readonly-agent-bash.mjs\"",
+            "timeout": 30,
+            "onFailure": "block"
+          },
+          {
+            "type": "command",
             "if": "Bash(git *)",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-shared-checkout.mjs\"",
             "timeout": 30,
