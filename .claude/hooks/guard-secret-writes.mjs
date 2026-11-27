@@ -18,11 +18,15 @@
  *      placeholders (`${{ secrets.X }}`, `process.env.X`, `<your-token>`, ...)
  *      are NOT flagged -- the point is to catch values, not names.
  *
- * A Bash command is checked by text only, best effort, and blocked when in doubt: a command that
- * names a dotenv file and also writes (redirect, tee, cp, mv, dd, install, ln, touch, truncate, sed -i), a
- * command it cannot read completely (unclosed quote, escape, eval, source, a shell) that could write, a write
- * to a target it cannot resolve, and a token literal in the text of a write. It does not follow substitutions,
- * scripts or wrappers, so it is a backstop, not a sandbox.
+ * A Bash command is checked by text only, best effort, and blocked when in doubt. It fails closed: a command
+ * that names a dotenv file or holds a secret literal is blocked unless every simple command in it is on a
+ * short read-only list (cat, ls, head, tail, wc, grep, rg, echo, printf, pwd, jq, git log|show|diff|status,
+ * with no redirect, substitution or heredoc). So a dotenv name in a commit message still blocks. Other rules:
+ * a known writer (redirect, tee, cp, mv, dd, install, ln, touch, truncate, rsync, scp, xargs, sed -i,
+ * awk -i inplace, find -exec, curl or wget with an output flag, an interpreter with inline code) beside a
+ * dotenv name, a command it cannot read completely (unclosed quote, escape, eval, source, a shell) that could
+ * write, a write to a target it cannot resolve, and a token literal in the text of a write. It does not
+ * follow substitutions, scripts or wrappers, so it is a backstop, not a sandbox.
  *
  * Detection is deliberately conservative: prefix-anchored token shapes and
  * placeholder exclusion keep false positives off legitimate config/docs
@@ -447,6 +451,12 @@ export function isSecretWrite(filePath, content) {
 const TEMPLATE_SUFFIX = /\.(example|sample|template|dist)$/;
 const COPY_WRITERS = new Set(["tee", "cp", "mv", "dd", "install", "ln", "touch", "truncate"]);
 const CONTENT_WRITERS = new Set(["tee", "dd"]);
+// Commands that only read, when the command has no redirect, substitution or heredoc (see readOnlyOnly).
+const READ_ONLY = new Set(["cat", "ls", "head", "tail", "wc", "grep", "rg", "echo", "printf", "pwd", "jq"]);
+const READ_ONLY_GIT = new Set(["log", "show", "diff", "status"]);
+const GIT_OPTIONS = new Set(["--oneline", "--stat", "--name-only", "--name-status", "--shortstat", "--numstat", "-n", "--", "--no-pager"]);
+// A flag that makes an otherwise read-only command write or run something.
+const WRITING_FLAG = /^(?:--output(?:=|$)|--pre(?:=|$)|--ext-diff|--textconv|--open-files-in-pager)/;
 const SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "ash", "fish"]);
 // `$VAR/name` is a known file name in an unknown directory; any other expansion in a target is a dynamic target.
 const KNOWN_DIRECTORY = /^(?:\$\w+|\$\{\w+\})\/[^$`{}*?[\\\s]+$/;
@@ -493,6 +503,42 @@ function tokenise(command) {
   return words;
 }
 
+/** Whether the text holds a known writer beyond the copy tools. Run on the raw text and on the tokenised words. */
+function extraWriter(text) {
+  const flag = String.raw`(?:^|\s)`;
+  const rules = [
+    /\b(?:rsync|scp|xargs)\b/,
+    new RegExp(String.raw`\b(?:python[\d.]*|node|perl|ruby|php)\b[^\n;&|]*` + flag + String.raw`(?:-[A-Za-z]*[ceEipr]|--eval|--print|--exec)`),
+    new RegExp(String.raw`\bcurl\b[^\n;&|]*` + flag + String.raw`(?:-[A-Za-z]*[oOJ]|--output|--remote-name|--remote-header-name)`),
+    new RegExp(String.raw`\bwget\b[^\n;&|]*` + flag + String.raw`(?:-[A-Za-z]*[Oo]|--output-document|--output-file)`),
+    /\bawk\b[^\n;&|]*\s-i\s*inplace/,
+    /\bfind\b[^\n;&|]*\s-(?:exec|execdir|ok|okdir|fprint|fprint0|fprintf|fls|delete)\b/,
+  ];
+  return rules.some((r) => r.test(text));
+}
+
+/**
+ * Whether every simple command of the tokenised command is on the read-only list, with no redirect (other than
+ * to /dev/null), no substitution and no heredoc. A null token list is never read-only.
+ */
+function readOnlyOnly(tokens, command, redirect) {
+  if (tokens === null || redirect || /\$\(|`|<<|\$\{?\w/.test(command)) return false;
+  let i = 0;
+  while (i < tokens.length) {
+    const group = [];
+    do group.push(tokens[i++].text);
+    while (i < tokens.length && !tokens[i].start);
+    const [name, sub] = group;
+    if (group.some((w) => WRITING_FLAG.test(w))) return false;
+    if (name === "git") {
+      // Git accepts abbreviated long options, so only an explicit list of options passes.
+      if (!READ_ONLY_GIT.has(sub)) return false;
+      if (group.slice(2).some((w) => w.startsWith("-") && !GIT_OPTIONS.has(w) && !/^-\d+$/.test(w))) return false;
+    } else if (!READ_ONLY.has(name)) return false;
+  }
+  return true;
+}
+
 /**
  * Block reasons for a Bash command (empty when allowed). Best effort, and it blocks when in doubt.
  *
@@ -511,12 +557,17 @@ export function isSecretBash(command) {
   const RAW_WRITER = /\b(?:tee|cp|mv|dd|install|ln|touch|truncate)\b/;
   const rawSedInPlace = /\bsed\b/.test(command) && /(?:^|\s)(?:-[A-Za-z]*i|--in-place(?:=|\b))/.test(command);
   const sedInPlace = rawSedInPlace || (names.includes("sed") && words.some((w) => /^-[A-Za-z]*i|^--in-place(?:=|$)/.test(w)));
-  const writer = RAW_WRITER.test(command) || names.some((n) => COPY_WRITERS.has(n)) || sedInPlace;
+  const writer =
+    RAW_WRITER.test(command) || names.some((n) => COPY_WRITERS.has(n)) || sedInPlace || extraWriter(command) || extraWriter(words.join(" "));
   const contentWrite = redirect || sedInPlace || /\b(?:tee|dd)\b/.test(command) || names.some((n) => CONTENT_WRITERS.has(n));
   const dotenv = hasDotenvWord(command) || words.some(hasDotenvWord);
   const reasons = [];
   if (dotenv && tokens?.some((t) => t.start && /[$`]/.test(t.text))) reasons.push("a dotenv file named in a command whose name is built by an expansion");
   if (dotenv && (redirect || writer)) reasons.push("a command that names a dotenv file and writes");
+  // Fail closed: a dotenv name or a secret literal is allowed only in a command made of read-only commands.
+  if ((dotenv || findSecrets(command).length > 0) && !readOnlyOnly(tokens, command, redirect)) {
+    reasons.push("a command that names a dotenv file or holds a secret and is not made only of read-only commands");
+  }
   if (dotenv && (/\$\(|`|<<(?!<)/.test(command))) reasons.push("a dotenv file named in a command with a substitution or heredoc");
   // A shell with -c, eval, source, `.` and env -S run text this guard does not read: blocked whatever else is visible.
   const runsText =
