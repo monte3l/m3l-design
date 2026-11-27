@@ -18,11 +18,11 @@
  *      placeholders (`${{ secrets.X }}`, `process.env.X`, `<your-token>`, ...)
  *      are NOT flagged -- the point is to catch values, not names.
  *
- * A Bash command is held to the same rules where it writes a file: a redirect
- * (`>`, `>>`, `&>`, `>|`) or `tee` aimed at a dotenv file is blocked, and so is a
- * command that has such a write (other than to /dev/null or a file descriptor)
- * and carries a secret literal, which covers `echo KEY=value > f` and a heredoc.
- * A command that writes nothing is not judged: it holds a token only in memory.
+ * A Bash command is checked by text only, best effort, and blocked when in doubt: a command that
+ * names a dotenv file and also writes (redirect, tee, cp, mv, dd, install, ln, touch, truncate, sed -i), a
+ * command it cannot read completely (unclosed quote, escape, eval, source, a shell) that could write, a write
+ * to a target it cannot resolve, and a token literal in the text of a write. It does not follow substitutions,
+ * scripts or wrappers, so it is a backstop, not a sandbox.
  *
  * Detection is deliberately conservative: prefix-anchored token shapes and
  * placeholder exclusion keep false positives off legitimate config/docs
@@ -439,372 +439,110 @@ export function isSecretWrite(filePath, content) {
   return reasons;
 }
 
-// The scanners below find where a substitution (`$(...)`, backticks) or a quoted string ends, with quotes,
-// nested substitutions and heredoc bodies inside it. -1 means it never closes.
-function backtickEnd(s, from) {
-  for (let i = from; i < s.length; i++) {
-    if (s[i] === "\\") i++;
-    else if (s[i] === "`") return i;
-  }
-  return -1;
-}
+// ---- Bash: best effort ---------------------------------------------------------------------------------
+// A shell cannot be parsed completely here, so this is a text check that blocks when in doubt: a command that
+// names a dotenv file and also writes, a command it cannot tokenise that could write, and a token literal in
+// the text of a write. It does not follow substitutions, scripts or wrappers.
 
-function doubleQuoteEnd(s, from) {
-  let i = from;
-  while (i < s.length) {
-    const c = s[i];
-    if (c === "\\") i += 2;
-    else if (c === '"') return i;
-    else if (c === "$" && s[i + 1] === "(") {
-      const end = substitutionEnd(s, i + 2);
-      if (end === -1) return -1;
-      i = end + 1;
-    } else if (c === "`") {
-      const end = backtickEnd(s, i + 1);
-      if (end === -1) return -1;
-      i = end + 1;
-    } else i++;
-  }
-  return -1;
-}
-
-function substitutionEnd(s, from) {
-  let i = from;
-  let depth = 1;
-  const pending = [];
-  while (i < s.length) {
-    const c = s[i];
-    if (c === "\n") {
-      i++;
-      while (pending.length > 0) {
-        const delimiter = pending.shift();
-        while (i < s.length) {
-          const end = s.indexOf("\n", i);
-          const line = s.slice(i, end === -1 ? s.length : end);
-          i = end === -1 ? s.length : end + 1;
-          if (line.replace(/^\t+/, "") === delimiter) break;
-        }
-      }
-    } else if (c === "\\") i += 2;
-    else if (c === "'") {
-      const end = s.indexOf("'", i + 1);
-      if (end === -1) return -1;
-      i = end + 1;
-    } else if (c === '"') {
-      const end = doubleQuoteEnd(s, i + 1);
-      if (end === -1) return -1;
-      i = end + 1;
-    } else if (c === "`") {
-      const end = backtickEnd(s, i + 1);
-      if (end === -1) return -1;
-      i = end + 1;
-    } else if (c === "$" && s[i + 1] === "(") {
-      const end = substitutionEnd(s, i + 2);
-      if (end === -1) return -1;
-      i = end + 1;
-    } else if (c === "<" && s[i + 1] === "<" && s[i + 2] !== "<") {
-      const m = /^<<-?[ \t]*(?:'([^']*)'|"([^"]*)"|([^\s;&|()<>]+))/.exec(s.slice(i));
-      if (m) {
-        pending.push(m[1] ?? m[2] ?? m[3]);
-        i += m[0].length;
-      } else i++;
-    } else {
-      if (c === "(") depth++;
-      if (c === ")" && --depth === 0) return i;
-      i++;
-    }
-  }
-  return -1;
-}
-
-/**
- * Read a shell command into tokens: `{ word, dyn }` for a word (quotes and escapes resolved; `dyn` when
- * it holds an expansion the parser cannot resolve: `$`, a backtick, an unquoted `{`) and `{ op }` for an
- * operator. Heredoc bodies are skipped. The text of every substitution is returned in `subs`, to be read
- * as commands too. Returns null for what it cannot model (an unclosed quote or substitution, `$'..'`).
- *
- * @param {string} command
- * @returns {(({ word: string, dyn: boolean } | { op: string })[] & { subs: string[] }) | null}
- */
-export function lexShell(command) {
-  const toks = [];
-  toks.subs = [];
-  const pending = [];
-  let word = null;
-  let dyn = false;
-  let wantDelimiter = false;
-  const n = command.length;
-  const flush = () => {
-    if (word === null) return;
-    if (wantDelimiter) pending.push(word);
-    wantDelimiter = false;
-    toks.push({ word, dyn });
-    word = null;
-    dyn = false;
-  };
-  const op = (value) => {
-    flush();
-    toks.push({ op: value });
-  };
-  // A substitution at `i`: its text goes to `subs`, the word holds a marker, and the index after it is returned (or -1).
-  const substitution = (i) => {
-    const backtick = command[i] === "`";
-    const end = backtick ? backtickEnd(command, i + 1) : substitutionEnd(command, i + 2);
-    if (end === -1) return -1;
-    toks.subs.push(command.slice(i + (backtick ? 1 : 2), end));
-    word = (word ?? "") + "$()";
-    dyn = true;
-    return end + 1;
-  };
-  let i = 0;
-  while (i < n) {
-    const c = command[i];
-    if (c === "\n") {
-      op("\n");
-      i++;
-      while (pending.length > 0) {
-        const delimiter = pending.shift();
-        while (i < n) {
-          const end = command.indexOf("\n", i);
-          const line = command.slice(i, end === -1 ? n : end);
-          i = end === -1 ? n : end + 1;
-          if (line.replace(/^\t+/, "") === delimiter) break;
-        }
-      }
-      continue;
-    }
-    if (c === " " || c === "\t" || c === "\r") {
-      flush();
-      i++;
-      continue;
-    }
-    if (c === "#" && word === null) {
-      while (i < n && command[i] !== "\n") i++;
-      continue;
-    }
-    if (c === "'") {
-      const end = command.indexOf("'", i + 1);
-      if (end === -1) return null;
-      word = (word ?? "") + command.slice(i + 1, end);
-      i = end + 1;
-      continue;
-    }
-    if (c === '"') {
-      word ??= "";
-      i++;
-      for (;;) {
-        if (i >= n) return null;
-        const d = command[i];
-        if (d === '"') break;
-        if (d === "\\" && i + 1 < n && '"\\$`\n'.includes(command[i + 1])) {
-          if (command[i + 1] !== "\n") word += command[i + 1];
-          i += 2;
-        } else if ((d === "$" && command[i + 1] === "(") || d === "`") {
-          i = substitution(i);
-          if (i === -1) return null;
-        } else {
-          if (d === "$") dyn = true;
-          word += d;
-          i++;
-        }
-      }
-      i++;
-      continue;
-    }
-    if (c === "\\") {
-      if (i + 1 < n && command[i + 1] !== "\n") word = (word ?? "") + command[i + 1];
-      i += 2;
-      continue;
-    }
-    if (c === "$" && command[i + 1] === "'") return null;
-    if ((c === "$" && command[i + 1] === "(") || c === "`") {
-      i = substitution(i);
-      if (i === -1) return null;
-      continue;
-    }
-    if (c === "$") {
-      dyn = true;
-      word = (word ?? "") + c;
-      i++;
-      continue;
-    }
-    const rest = command.slice(i);
-    const operator = /^(?:&>>|&>|&&|&|\|\||\|&|\||;|\(|\)|>>|>\||>&|>|<<<|<<-|<<|<&|<)/.exec(rest)?.[0];
-    if (operator !== undefined) {
-      // `2>file`: the digits are a file descriptor, not an argument.
-      if (operator.startsWith(">") || operator.startsWith("<")) {
-        if (word !== null && /^\d+$/.test(word)) word = null;
-      }
-      op(operator);
-      if (operator === "<<" || operator === "<<-") wantDelimiter = true;
-      i += operator.length;
-      continue;
-    }
-    if (c === "{") dyn = true;
-    word = (word ?? "") + c;
-    i++;
-  }
-  flush();
-  return toks;
-}
-
-const REDIRECT_OUT = new Set([">", ">>", ">|", "&>", "&>>", ">&"]);
-const WORD_WRITERS = new Set(["cp", "mv", "install", "ln", "touch", "truncate"]);
+const TEMPLATE_SUFFIX = /\.(example|sample|template|dist)$/;
+const COPY_WRITERS = new Set(["tee", "cp", "mv", "dd", "install", "ln", "touch", "truncate"]);
+const CONTENT_WRITERS = new Set(["tee", "dd"]);
 const SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "ash", "fish"]);
-// What a wrapper takes before the command it runs: flags that carry a value, and leading positionals.
-const PREFIXES = {
-  env: { value: ["-u", "-C", "-S", "--unset", "--chdir"], unresolved: ["-S", "--split-string"] },
-  command: { value: [] },
-  builtin: { value: [] },
-  exec: { value: ["-a"] },
-  nohup: { value: [] },
-  setsid: { value: [] },
-  time: { value: ["-f", "-o"] },
-  sudo: { value: ["-u", "-g", "-h", "-p", "-C", "-D", "-R", "-T", "-r", "-t", "-U"] },
-  doas: { value: ["-u", "-C"] },
-  timeout: { value: ["-s", "-k", "--signal", "--kill-after"], positional: 1 },
-  nice: { value: ["-n", "--adjustment"] },
-  ionice: { value: ["-c", "-n", "-p", "-t"] },
-  stdbuf: { value: ["-i", "-o", "-e"] },
-  xargs: { value: ["-I", "-n", "-P", "-d", "-L", "-s", "-E", "-a", "-l"] },
-};
-// Only the name of the file matters: `$TMPDIR/out.log` is a known name in an unknown directory.
+// `$VAR/name` is a known file name in an unknown directory; any other expansion in a target is a dynamic target.
 const KNOWN_DIRECTORY = /^(?:\$\w+|\$\{\w+\})\/[^$`{}*?[\\\s]+$/;
-const envLike = (word) => {
-  const base = path.basename(word);
-  return base.startsWith(".env") && !/\.(example|sample|template|dist)$/.test(base);
-};
 
-/** Index of the command a run of words executes, after assignments and wrappers (and their options), or -1. */
-function headIndex(words, out) {
-  let k = 0;
-  for (;;) {
-    if (k >= words.length) return -1;
-    const w = words[k].word;
-    if (/^[A-Za-z_]\w*=/.test(w)) {
-      k++;
-      continue;
-    }
-    const spec = PREFIXES[path.basename(w)];
-    if (!spec || words[k].dyn) return k;
-    k++;
-    while (k < words.length && words[k].word.startsWith("-") && words[k].word.length > 1) {
-      const flag = words[k].word;
-      k++;
-      if (flag === "--") break;
-      if (spec.unresolved?.some((u) => flag === u || flag.startsWith(`${u}=`))) out.unresolved.push(`${path.basename(w)} ${flag}`);
-      if (spec.value.includes(flag) && k < words.length) k++;
-    }
-    k += spec.positional ?? 0;
-  }
-}
-
-function analyze(command, out, depth) {
-  if (depth > 4) {
-    out.unresolved.push("a command nested too deeply");
-    return;
-  }
-  const toks = lexShell(command);
-  if (toks === null) {
-    out.unresolved.push("a command the parser cannot model");
-    return;
-  }
-  for (const sub of toks.subs) analyze(sub, out, depth + 1);
-  const add = (tok, text) => {
-    const raw = tok.word;
-    const base = path.basename(raw);
-    if (/[*?[]/.test(base) && base.startsWith(".") && ".env".startsWith(base.split(/[*?[]/)[0])) {
-      out.unresolved.push(raw);
-      return;
-    }
-    if (tok.dyn && !KNOWN_DIRECTORY.test(raw)) {
-      out.unresolved.push(raw);
-      return;
-    }
-    out.targets.push(raw);
-    if (text) out.writes = out.writes || (raw !== "/dev/null" && !/^&?\d+$|^-$/.test(raw));
-  };
-  let words = [];
-  const finish = () => {
-    const segment = words;
-    words = [];
-    const k = headIndex(segment, out);
-    const head = segment[k];
-    // The head cannot be identified: fall back to reading every word for a dotenv file.
-    if (head === undefined || head.dyn) {
-      if (segment.some((w) => envLike(w.word))) out.unresolved.push(segment.map((w) => w.word).join(" "));
-      return;
-    }
-    const args = segment.slice(k + 1);
-    const name = path.basename(head.word);
-    const plain = args.filter((a) => !a.word.startsWith("-"));
-    if (SHELLS.has(name)) {
-      const c = args.findIndex((a) => /^-[A-Za-z]*c/.test(a.word) && !a.word.startsWith("--"));
-      if (c !== -1 && args[c + 1]) {
-        if (args[c + 1].dyn) out.unresolved.push(`${name} -c with a dynamic string`);
-        else analyze(args[c + 1].word, out, depth + 1);
-      }
-    } else if (name === "eval") {
-      if (args.some((a) => a.dyn)) out.unresolved.push("eval with a dynamic string");
-      else analyze(args.map((a) => a.word).join(" "), out, depth + 1);
-    } else if (name === "source" || name === ".") out.unresolved.push(`${name} runs a script the parser cannot read`);
-    else if (name === "tee") for (const a of plain) add(a, true);
-    else if (name === "dd") {
-      for (const a of args) if (a.word.startsWith("of=")) add({ word: a.word.slice(3), dyn: a.dyn }, true);
-    } else if (name === "sed") {
-      if (args.some((a) => /^-[A-Za-z]*i|^--in-place/.test(a.word))) for (const a of plain.slice(1)) add(a, true);
-    } else if (WORD_WRITERS.has(name)) for (const a of plain) add(a, false);
-  };
-  for (let t = 0; t < toks.length; t++) {
-    const tok = toks[t];
-    if ("word" in tok) {
-      words.push(tok);
-      continue;
-    }
-    if (REDIRECT_OUT.has(tok.op)) {
-      const target = toks[t + 1];
-      if (target && "word" in target) {
-        t++;
-        if (!(tok.op === ">&" && /^(\d+|-)$/.test(target.word))) add(target, true);
-      }
-      continue;
-    }
-    if (tok.op.startsWith("<")) {
-      if (toks[t + 1] && "word" in toks[t + 1]) t++;
-      continue;
-    }
-    finish();
-  }
-  finish();
+/** Whether any word of `text` is a dotenv file (a name starting `.env`, in any case, that is not a template). */
+export function hasDotenvWord(text) {
+  return text.split(/[\s=:><|;&()"'`]+/).some((part) => {
+    const base = path.basename(part).toLowerCase();
+    return base.startsWith(".env") && !TEMPLATE_SUFFIX.test(base);
+  });
 }
 
 /**
- * The files a Bash command writes, read with a shell-word tokenizer: redirects, `tee`, `dd of=`,
- * `sed -i`, and the targets of `cp`, `mv`, `install`, `ln`, `touch` and `truncate`, also inside
- * substitutions, `sh -c` strings and `eval`. `writes` is true when text is written to a file (a literal
- * secret in the command is then a leak). `unresolved` lists what the parser cannot resolve (a target
- * built by an expansion, a command it cannot model, `source`): the caller refuses those.
- *
- * @param {string} command
- * @returns {{ targets: string[], writes: boolean, unresolved: string[] }}
+ * Words of a command (quotes removed, no escapes), with `start` true for the first word of each simple command.
+ * Returns null when a quote never closes.
  */
-export function bashWriteTargets(command) {
-  const out = { targets: [], writes: false, unresolved: [] };
-  analyze(command, out, 0);
-  return out;
+function tokenise(command) {
+  const words = [];
+  let word = null;
+  let quote = "";
+  let start = true;
+  const end = () => {
+    if (word !== null) {
+      words.push({ text: word, start });
+      start = false;
+    }
+    word = null;
+  };
+  for (const c of command) {
+    if (quote !== "") {
+      if (c === quote) quote = "";
+      else word += c;
+    } else if (c === "'" || c === '"') {
+      quote = c;
+      word ??= "";
+    } else if (c === ";" || c === "&" || c === "|" || c === "(" || c === ")" || c === "\n") {
+      end();
+      start = true;
+    } else if (c === " " || c === "\t" || c === "\r") end();
+    else word = (word ?? "") + c;
+  }
+  if (quote !== "") return null;
+  end();
+  return words;
 }
 
 /**
- * Block reasons for a Bash command (empty when allowed).
+ * Block reasons for a Bash command (empty when allowed). Best effort, and it blocks when in doubt.
  *
  * @param {string} command
  * @returns {string[]}
  */
 export function isSecretBash(command) {
-  const { targets, writes, unresolved } = bashWriteTargets(command);
-  const reasons = targets.filter(isEnvFilePath).map((t) => `writing a dotenv secret file (${path.basename(t)})`);
-  for (const t of unresolved) reasons.push(`a write target the parser cannot resolve (${t})`);
-  if (writes) reasons.push(...findSecrets(command));
+  const tokens = tokenise(command);
+  const words = tokens?.map((t) => t.text) ?? [];
+  const names = words.map((w) => path.basename(w));
+  // A redirect that is not a descriptor copy (`2>&1`) or a write to /dev/null.
+  const text = command.replace(/\d*>&\d+|\d*>>?\s*\/dev\/null/g, " ");
+  const redirect = text.includes(">");
+  const sedInPlace = names.includes("sed") && words.some((w) => /^-[A-Za-z]*i|^--in-place$/.test(w));
+  const writer = names.some((n) => COPY_WRITERS.has(n)) || sedInPlace;
+  const contentWrite = redirect || names.some((n) => CONTENT_WRITERS.has(n)) || sedInPlace;
+  const dotenv = hasDotenvWord(command) || words.some(hasDotenvWord);
+  const reasons = [];
+  if (dotenv && tokens?.some((t) => t.start && /[$`]/.test(t.text))) reasons.push("a dotenv file named in a command whose name is built by an expansion");
+  if (dotenv && (redirect || writer)) reasons.push("a command that names a dotenv file and writes");
+  if (dotenv && (/\$\(|`|<<(?!<)/.test(command))) reasons.push("a dotenv file named in a command with a substitution or heredoc");
+  const untokenisable = tokens === null || /\$'/.test(command) || /\\/.test(command);
+  // A shell with -c, eval, source, `.` and env -S run text this guard does not read: blocked whatever else is visible.
+  const runsText =
+    tokens === null
+      ? /(?:^|[\s;&|(])(?:eval|source)\s|\b(?:sh|bash|zsh|dash|ksh|ash|fish)\b[^\n]*\s-[A-Za-z]*c|--split-string/.test(command)
+      : tokens.some((t) => ["eval", "source"].includes(path.basename(t.text)) || (t.start && t.text === ".")) ||
+        (names.some((n) => SHELLS.has(n)) && words.some((w) => /^-[A-Za-z]*c/.test(w))) ||
+        words.some((w) => w === "--split-string" || w.startsWith("--split-string=")) ||
+        (names.includes("env") && words.some((w) => /^-[A-Za-z]*S/.test(w)));
+  if (runsText) reasons.push("a shell -c, eval, source, . or env -S: it runs text the guard does not read");
+  // A shell script or an unreadable command (unclosed quote, escape) is blocked when it could write.
+  const shellScript = tokens !== null && names.some((n) => SHELLS.has(n));
+  if ((untokenisable || shellScript) && (dotenv || redirect || writer)) {
+    reasons.push("a command the guard cannot read completely (unclosed quote, escape, shell) that could write");
+  }
+  if (/<<(?!<)/.test(command) && (dotenv || redirect || writer)) reasons.push("a heredoc in a command that could write");
+  // A target built by an expansion, a glob or a brace list: its name cannot be read.
+  if (redirect || writer) {
+    const dynamic = (target) => /[$`{*?[]/.test(target) && !KNOWN_DIRECTORY.test(target);
+    const targets = [...text.matchAll(/(?:&>>?|\d*>>?\|?)[ \t]*([^\s;&|()<>]+)/g)].map((m) => m[1].replace(/["']/g, ""));
+    for (let i = 0; i < words.length; i++) {
+      if (COPY_WRITERS.has(names[i]) || (names[i] === "sed" && sedInPlace)) {
+        for (const w of words.slice(i + 1)) if (!w.startsWith("-") || w.startsWith("of=")) targets.push(w.replace(/^of=/, ""));
+        break;
+      }
+    }
+    if (targets.some(dynamic)) reasons.push("a write target the guard cannot resolve (expansion or glob)");
+  }
+  if (contentWrite && findSecrets(command).length > 0) reasons.push(...findSecrets(command));
   return reasons;
 }
 
