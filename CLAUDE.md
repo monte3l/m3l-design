@@ -60,7 +60,8 @@ Everything under `.claude/` is wired in `.claude/settings.json`, and every hook 
 | Hook | Event | What it does |
 | --- | --- | --- |
 | `.claude/hooks/block-generated.sh` | PreToolUse, Edit or Write | Refuses hand edits to `tokens.css` and `SHA256SUMS` and points at `bin/build-design-tokens.mjs` |
-| `.claude/hooks/guard-secret-writes.mjs` | PreToolUse, Edit or Write | Blocks writing `.env*` files or real secret values. Fails closed (`onFailure: block`) |
+| `.claude/hooks/guard-secret-writes.mjs` | PreToolUse, Edit or Write, and Bash | Blocks writing `.env*` files or real secret values. For Bash: a redirect or `tee` to a `.env*` file, or a token literal in a command that writes a file. Fails closed (`onFailure: block`) |
+| `.claude/hooks/guard-readonly-agent-bash.mjs` | PreToolUse, Bash | For the agents in its `READONLY_AGENTS` (`Explore`, `code-reviewer`, `silent-failure-hunter`, `token-change-reviewer`, matched on the hook input's `agent_type`), lets only a fixed list of read commands run and answers `ask` for anything else. Other agents and the main session pass untouched. Fails closed (`onFailure: block`) |
 | `.claude/hooks/guard-no-commonjs.mjs` | PreToolUse, Edit or Write | Blocks `require`, `module.exports` and `__dirname` in JavaScript |
 | `.claude/hooks/release-guard.sh` | PreToolUse, Bash | Asks before `gh release edit --draft=false` or a `gh release create` that is not a draft |
 | `.claude/hooks/guard-double-background.mjs` | PreToolUse, Bash | Blocks `run_in_background` combined with `nohup`, `&` or `disown` |

@@ -1,8 +1,6 @@
 #!/usr/bin/env node
-// SPDX-FileCopyrightText: Copyright the m3l-groundwork contributors
-// SPDX-License-Identifier: MIT
 /**
- * PreToolUse blocking (Write|Edit|NotebookEdit): refuse to write a real secret to disk.
+ * PreToolUse blocking (Write|Edit|NotebookEdit|Bash): refuse to write a real secret to disk.
  *
  * CLAUDE.md's Security section requires that no secret or token ever land in
  * source, tests, or fixtures. A CI secret-scanning step is the backstop;
@@ -19,6 +17,12 @@
  *      recognised high-entropy token/private-key literal. References and
  *      placeholders (`${{ secrets.X }}`, `process.env.X`, `<your-token>`, ...)
  *      are NOT flagged -- the point is to catch values, not names.
+ *
+ * A Bash command is held to the same rules where it writes a file: a redirect
+ * (`>`, `>>`, `&>`, `>|`) or `tee` aimed at a dotenv file is blocked, and so is a
+ * command that has such a write (other than to /dev/null or a file descriptor)
+ * and carries a secret literal, which covers `echo KEY=value > f` and a heredoc.
+ * A command that writes nothing is not judged: it holds a token only in memory.
  *
  * Detection is deliberately conservative: prefix-anchored token shapes and
  * placeholder exclusion keep false positives off legitimate config/docs
@@ -435,6 +439,201 @@ export function isSecretWrite(filePath, content) {
   return reasons;
 }
 
+/**
+ * Read a shell command into tokens: `{ word, dyn }` for a word (quotes and escapes resolved; `dyn` when
+ * it holds an expansion the parser cannot resolve: `$`, a backtick, `$'..'`) and `{ op }` for an operator.
+ * Heredoc bodies are skipped. Returns null for an unclosed quote.
+ *
+ * @param {string} command
+ * @returns {({ word: string, dyn: boolean } | { op: string })[] | null}
+ */
+export function lexShell(command) {
+  const toks = [];
+  const pending = [];
+  let word = null;
+  let dyn = false;
+  let wantDelimiter = false;
+  const n = command.length;
+  const flush = () => {
+    if (word === null) return;
+    if (wantDelimiter) pending.push(word);
+    wantDelimiter = false;
+    toks.push({ word, dyn });
+    word = null;
+    dyn = false;
+  };
+  const op = (value) => {
+    flush();
+    toks.push({ op: value });
+  };
+  let i = 0;
+  while (i < n) {
+    const c = command[i];
+    if (c === "\n") {
+      op("\n");
+      i++;
+      while (pending.length > 0) {
+        const delimiter = pending.shift();
+        while (i < n) {
+          const end = command.indexOf("\n", i);
+          const line = command.slice(i, end === -1 ? n : end);
+          i = end === -1 ? n : end + 1;
+          if (line.replace(/^\t+/, "") === delimiter) break;
+        }
+      }
+      continue;
+    }
+    if (c === " " || c === "\t" || c === "\r") {
+      flush();
+      i++;
+      continue;
+    }
+    if (c === "#" && word === null) {
+      while (i < n && command[i] !== "\n") i++;
+      continue;
+    }
+    if (c === "'") {
+      const end = command.indexOf("'", i + 1);
+      if (end === -1) return null;
+      word = (word ?? "") + command.slice(i + 1, end);
+      i = end + 1;
+      continue;
+    }
+    if (c === '"') {
+      word ??= "";
+      i++;
+      for (;;) {
+        if (i >= n) return null;
+        const d = command[i];
+        if (d === '"') break;
+        if (d === "\\" && i + 1 < n && '"\\$`\n'.includes(command[i + 1])) {
+          if (command[i + 1] !== "\n") word += command[i + 1];
+          i += 2;
+          continue;
+        }
+        if (d === "$" || d === "`") dyn = true;
+        word += d;
+        i++;
+      }
+      i++;
+      continue;
+    }
+    if (c === "\\") {
+      if (i + 1 < n && command[i + 1] !== "\n") word = (word ?? "") + command[i + 1];
+      i += 2;
+      continue;
+    }
+    if (c === "$" || c === "`") {
+      dyn = true;
+      word = (word ?? "") + c;
+      i++;
+      continue;
+    }
+    const rest = command.slice(i);
+    const operator = /^(?:&>>|&>|&&|&|\|\||\|&|\||;|\(|\)|>>|>\||>&|>|<<<|<<-|<<|<&|<)/.exec(rest)?.[0];
+    if (operator !== undefined) {
+      // `2>file`: the digits are a file descriptor, not an argument.
+      if (operator.startsWith(">") || operator.startsWith("<")) {
+        if (word !== null && /^\d+$/.test(word)) word = null;
+      }
+      op(operator);
+      if (operator === "<<" || operator === "<<-") wantDelimiter = true;
+      i += operator.length;
+      continue;
+    }
+    word = (word ?? "") + c;
+    i++;
+  }
+  flush();
+  return toks;
+}
+
+const REDIRECT_OUT = new Set([">", ">>", ">|", "&>", "&>>", ">&"]);
+const WORD_WRITERS = new Set(["cp", "mv", "install", "ln", "touch", "truncate"]);
+const COMMAND_PREFIXES = new Set(["env", "command", "sudo", "exec", "nohup", "xargs", "time", "builtin"]);
+
+/**
+ * The files a Bash command writes, read with a shell-word tokenizer: redirects, `tee`, `dd of=`,
+ * `sed -i`, and the targets of `cp`, `mv`, `install`, `ln`, `touch` and `truncate`.
+ * `writes` are the targets that hold written text (a literal secret there is a leak); `unresolved`
+ * names a target whose file name the parser cannot resolve (a variable or substitution in it).
+ *
+ * @param {string} command
+ * @returns {{ targets: string[], writes: boolean, unresolved: string[] }}
+ */
+export function bashWriteTargets(command) {
+  const out = { targets: [], writes: false, unresolved: [] };
+  const toks = lexShell(command);
+  if (toks === null) return out;
+  const add = (tok, text) => {
+    const raw = tok.word;
+    const base = path.basename(raw);
+    const globbed = /[*?[]/.test(base) && base.startsWith(".") && ".env".startsWith(base.split(/[*?[]/)[0]);
+    if (globbed) out.unresolved.push(raw);
+    // Only the name of the file matters: `$TMPDIR/out.log` is a known name in an unknown directory.
+    if (tok.dyn && /[$`]/.test(path.basename(raw))) out.unresolved.push(raw);
+    else if (text) out.writes = out.writes || (raw !== "/dev/null" && !/^&?\d+$|^-$/.test(raw));
+    if (!(tok.dyn && /[$`]/.test(path.basename(raw)))) out.targets.push(raw);
+  };
+  let words = [];
+  const finish = () => {
+    let k = 0;
+    while (k < words.length && (/^[A-Za-z_]\w*=/.test(words[k].word) || COMMAND_PREFIXES.has(words[k].word))) k++;
+    const [head, ...args] = words.slice(k);
+    words = [];
+    if (head === undefined) return;
+    const name = path.basename(head.word);
+    const plain = args.filter((a) => !a.word.startsWith("-"));
+    if (name === "tee") for (const a of plain) add(a, true);
+    else if (name === "dd") {
+      for (const a of args) if (a.word.startsWith("of=")) add({ word: a.word.slice(3), dyn: a.dyn }, true);
+    } else if (name === "sed") {
+      if (args.some((a) => /^-[A-Za-z]*i|^--in-place/.test(a.word))) for (const a of plain.slice(1)) add(a, true);
+    } else if (WORD_WRITERS.has(name)) for (const a of plain) add(a, false);
+  };
+  for (let t = 0; t < toks.length; t++) {
+    const tok = toks[t];
+    if ("word" in tok) {
+      words.push(tok);
+      continue;
+    }
+    if (REDIRECT_OUT.has(tok.op)) {
+      const target = toks[t + 1];
+      if (target && "word" in target) {
+        if (tok.op === ">&" && /^(\d+|-)$/.test(target.word)) {
+          t++;
+          continue;
+        }
+        add(target, true);
+        t++;
+      }
+      continue;
+    }
+    if (tok.op.startsWith("<")) {
+      if (toks[t + 1] && "word" in toks[t + 1] && tok.op !== "<<" && tok.op !== "<<-") t++;
+      else if (toks[t + 1] && "word" in toks[t + 1]) t++;
+      continue;
+    }
+    finish();
+  }
+  finish();
+  return out;
+}
+
+/**
+ * Block reasons for a Bash command (empty when allowed).
+ *
+ * @param {string} command
+ * @returns {string[]}
+ */
+export function isSecretBash(command) {
+  const { targets, writes, unresolved } = bashWriteTargets(command);
+  const reasons = targets.filter(isEnvFilePath).map((t) => `writing a dotenv secret file (${path.basename(t)})`);
+  for (const t of unresolved) reasons.push(`a write target the parser cannot resolve (${t})`);
+  if (writes) reasons.push(...findSecrets(command));
+  return reasons;
+}
+
 // Kept as a duplicated, self-contained block in every hook file rather than
 // imported from a shared helper -- each hook stays a single independent
 // file, which keeps this project's hook count easy to reason about against
@@ -469,6 +668,18 @@ if (isEntryPoint()) {
 
   // A notebook edit names its file `notebook_path` and carries `new_source`.
   const ti = input.tool_input ?? {};
+  if (typeof ti.command === "string" && ti.file_path === undefined && ti.notebook_path === undefined) {
+    const bashReasons = isSecretBash(ti.command);
+    if (bashReasons.length === 0) process.exit(0);
+    process.stderr.write(`\
+[guard-secret-writes] Blocked Bash command that writes a secret:
+${bashReasons.map((r) => `  - ${r}`).join("\n")}
+
+Secrets and tokens must never be written to the working tree. Use an env var
+reference, and keep real dotenv files out of the repo (author .env.example).
+`);
+    process.exit(2);
+  }
   const filePath = ti.file_path ?? ti.notebook_path ?? "";
   if (typeof filePath !== "string" || filePath.length === 0) process.exit(0);
 
