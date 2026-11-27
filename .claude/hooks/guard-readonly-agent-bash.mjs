@@ -16,8 +16,7 @@
  *   ls, cat, head, tail, wc                                       with fixed flags and named paths
  *   grep, rg (named regular files only: never a directory, never recursive, no globs)
  *   gh pr|issue|run|workflow|release|repo|label view|list         with fixed flags
- *   node --test test/NAME.test.mjs
- * Everything else asks: jq, gh api, find, sort, uniq, diff, shellcheck, wrappers, and so on.
+ * Everything else asks: jq, node (it runs code), gh api, find, sort, uniq, diff, shellcheck, wrappers, and so on.
  * Every path operand is resolved with realpath and must lie strictly inside the git toplevel of the working
  * directory, and not name a dotenv file (any case) or sit under `secrets/`.
  */
@@ -247,10 +246,9 @@ export function judgeCommand(command, cwd = process.cwd()) {
       return judgeGit(args, cwd, top);
     case "gh":
       return judgeGh(args);
-    case "node": {
-      const ok = args.length === 2 && args[0] === "--test" && /^test\/[\w.-]+\.test\.mjs$/.test(args[1]);
-      return ok ? pathProblem(args[1], cwd, top) : "node outside `node --test test/NAME.test.mjs`";
-    }
+    case "node":
+      // Not silent: it would run whatever file is in the working tree.
+      return "node runs code from the working tree";
     case "grep":
     case "rg": {
       const files = cmd === "rg" && args.includes("--files");
