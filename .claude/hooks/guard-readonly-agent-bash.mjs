@@ -39,11 +39,14 @@ function isEntryPoint() {
 }
 
 // Anything here, in or out of quotes, makes the command one this guard does not judge.
-const REFUSED = /[|;&<>$`\\(){}[\]*?!#\n\r]/;
+const REFUSED = /[|;&<>$`\\(){}[\]*?~!#\n\r]/;
+// The one `~` allowed: after a ref name, with digits only (`HEAD~2`, `main~2`). A tilde that starts a word or
+// follows `=` or `:` is a home directory, and stays refused.
+const ANCESTOR = /(?<=[A-Za-z0-9_./@^-])~[0-9]{1,3}(?=$|[\s"'^~])/g;
 
 /** The words of a single simple command, or null when it is not one. Quotes only group; they hide nothing. */
 function words(command) {
-  if (REFUSED.test(command)) return null;
+  if (REFUSED.test(command.replace(ANCESTOR, ""))) return null;
   const out = [];
   let word = null;
   let quote = "";
@@ -61,8 +64,7 @@ function words(command) {
   }
   if (quote !== "") return null;
   if (word !== null) out.push(word);
-  // A word that starts with `~` is a home directory.
-  return out.length > 0 && !out.some((w) => w.startsWith("~")) ? out : null;
+  return out.length > 0 ? out : null;
 }
 
 const TEMPLATE_SUFFIX = /\.(example|sample|template|dist)$/;
