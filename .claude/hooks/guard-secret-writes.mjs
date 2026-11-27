@@ -439,16 +439,96 @@ export function isSecretWrite(filePath, content) {
   return reasons;
 }
 
+// The scanners below find where a substitution (`$(...)`, backticks) or a quoted string ends, with quotes,
+// nested substitutions and heredoc bodies inside it. -1 means it never closes.
+function backtickEnd(s, from) {
+  for (let i = from; i < s.length; i++) {
+    if (s[i] === "\\") i++;
+    else if (s[i] === "`") return i;
+  }
+  return -1;
+}
+
+function doubleQuoteEnd(s, from) {
+  let i = from;
+  while (i < s.length) {
+    const c = s[i];
+    if (c === "\\") i += 2;
+    else if (c === '"') return i;
+    else if (c === "$" && s[i + 1] === "(") {
+      const end = substitutionEnd(s, i + 2);
+      if (end === -1) return -1;
+      i = end + 1;
+    } else if (c === "`") {
+      const end = backtickEnd(s, i + 1);
+      if (end === -1) return -1;
+      i = end + 1;
+    } else i++;
+  }
+  return -1;
+}
+
+function substitutionEnd(s, from) {
+  let i = from;
+  let depth = 1;
+  const pending = [];
+  while (i < s.length) {
+    const c = s[i];
+    if (c === "\n") {
+      i++;
+      while (pending.length > 0) {
+        const delimiter = pending.shift();
+        while (i < s.length) {
+          const end = s.indexOf("\n", i);
+          const line = s.slice(i, end === -1 ? s.length : end);
+          i = end === -1 ? s.length : end + 1;
+          if (line.replace(/^\t+/, "") === delimiter) break;
+        }
+      }
+    } else if (c === "\\") i += 2;
+    else if (c === "'") {
+      const end = s.indexOf("'", i + 1);
+      if (end === -1) return -1;
+      i = end + 1;
+    } else if (c === '"') {
+      const end = doubleQuoteEnd(s, i + 1);
+      if (end === -1) return -1;
+      i = end + 1;
+    } else if (c === "`") {
+      const end = backtickEnd(s, i + 1);
+      if (end === -1) return -1;
+      i = end + 1;
+    } else if (c === "$" && s[i + 1] === "(") {
+      const end = substitutionEnd(s, i + 2);
+      if (end === -1) return -1;
+      i = end + 1;
+    } else if (c === "<" && s[i + 1] === "<" && s[i + 2] !== "<") {
+      const m = /^<<-?[ \t]*(?:'([^']*)'|"([^"]*)"|([^\s;&|()<>]+))/.exec(s.slice(i));
+      if (m) {
+        pending.push(m[1] ?? m[2] ?? m[3]);
+        i += m[0].length;
+      } else i++;
+    } else {
+      if (c === "(") depth++;
+      if (c === ")" && --depth === 0) return i;
+      i++;
+    }
+  }
+  return -1;
+}
+
 /**
  * Read a shell command into tokens: `{ word, dyn }` for a word (quotes and escapes resolved; `dyn` when
- * it holds an expansion the parser cannot resolve: `$`, a backtick, `$'..'`) and `{ op }` for an operator.
- * Heredoc bodies are skipped. Returns null for an unclosed quote.
+ * it holds an expansion the parser cannot resolve: `$`, a backtick, an unquoted `{`) and `{ op }` for an
+ * operator. Heredoc bodies are skipped. The text of every substitution is returned in `subs`, to be read
+ * as commands too. Returns null for what it cannot model (an unclosed quote or substitution, `$'..'`).
  *
  * @param {string} command
- * @returns {({ word: string, dyn: boolean } | { op: string })[] | null}
+ * @returns {(({ word: string, dyn: boolean } | { op: string })[] & { subs: string[] }) | null}
  */
 export function lexShell(command) {
   const toks = [];
+  toks.subs = [];
   const pending = [];
   let word = null;
   let dyn = false;
@@ -465,6 +545,16 @@ export function lexShell(command) {
   const op = (value) => {
     flush();
     toks.push({ op: value });
+  };
+  // A substitution at `i`: its text goes to `subs`, the word holds a marker, and the index after it is returned (or -1).
+  const substitution = (i) => {
+    const backtick = command[i] === "`";
+    const end = backtick ? backtickEnd(command, i + 1) : substitutionEnd(command, i + 2);
+    if (end === -1) return -1;
+    toks.subs.push(command.slice(i + (backtick ? 1 : 2), end));
+    word = (word ?? "") + "$()";
+    dyn = true;
+    return end + 1;
   };
   let i = 0;
   while (i < n) {
@@ -509,11 +599,14 @@ export function lexShell(command) {
         if (d === "\\" && i + 1 < n && '"\\$`\n'.includes(command[i + 1])) {
           if (command[i + 1] !== "\n") word += command[i + 1];
           i += 2;
-          continue;
+        } else if ((d === "$" && command[i + 1] === "(") || d === "`") {
+          i = substitution(i);
+          if (i === -1) return null;
+        } else {
+          if (d === "$") dyn = true;
+          word += d;
+          i++;
         }
-        if (d === "$" || d === "`") dyn = true;
-        word += d;
-        i++;
       }
       i++;
       continue;
@@ -523,7 +616,13 @@ export function lexShell(command) {
       i += 2;
       continue;
     }
-    if (c === "$" || c === "`") {
+    if (c === "$" && command[i + 1] === "'") return null;
+    if ((c === "$" && command[i + 1] === "(") || c === "`") {
+      i = substitution(i);
+      if (i === -1) return null;
+      continue;
+    }
+    if (c === "$") {
       dyn = true;
       word = (word ?? "") + c;
       i++;
@@ -541,6 +640,7 @@ export function lexShell(command) {
       i += operator.length;
       continue;
     }
+    if (c === "{") dyn = true;
     word = (word ?? "") + c;
     i++;
   }
@@ -550,41 +650,105 @@ export function lexShell(command) {
 
 const REDIRECT_OUT = new Set([">", ">>", ">|", "&>", "&>>", ">&"]);
 const WORD_WRITERS = new Set(["cp", "mv", "install", "ln", "touch", "truncate"]);
-const COMMAND_PREFIXES = new Set(["env", "command", "sudo", "exec", "nohup", "xargs", "time", "builtin"]);
+const SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "ash", "fish"]);
+// What a wrapper takes before the command it runs: flags that carry a value, and leading positionals.
+const PREFIXES = {
+  env: { value: ["-u", "-C", "-S", "--unset", "--chdir"], unresolved: ["-S", "--split-string"] },
+  command: { value: [] },
+  builtin: { value: [] },
+  exec: { value: ["-a"] },
+  nohup: { value: [] },
+  setsid: { value: [] },
+  time: { value: ["-f", "-o"] },
+  sudo: { value: ["-u", "-g", "-h", "-p", "-C", "-D", "-R", "-T", "-r", "-t", "-U"] },
+  doas: { value: ["-u", "-C"] },
+  timeout: { value: ["-s", "-k", "--signal", "--kill-after"], positional: 1 },
+  nice: { value: ["-n", "--adjustment"] },
+  ionice: { value: ["-c", "-n", "-p", "-t"] },
+  stdbuf: { value: ["-i", "-o", "-e"] },
+  xargs: { value: ["-I", "-n", "-P", "-d", "-L", "-s", "-E", "-a", "-l"] },
+};
+// Only the name of the file matters: `$TMPDIR/out.log` is a known name in an unknown directory.
+const KNOWN_DIRECTORY = /^(?:\$\w+|\$\{\w+\})\/[^$`{}*?[\\\s]+$/;
+const envLike = (word) => {
+  const base = path.basename(word);
+  return base.startsWith(".env") && !/\.(example|sample|template|dist)$/.test(base);
+};
 
-/**
- * The files a Bash command writes, read with a shell-word tokenizer: redirects, `tee`, `dd of=`,
- * `sed -i`, and the targets of `cp`, `mv`, `install`, `ln`, `touch` and `truncate`.
- * `writes` are the targets that hold written text (a literal secret there is a leak); `unresolved`
- * names a target whose file name the parser cannot resolve (a variable or substitution in it).
- *
- * @param {string} command
- * @returns {{ targets: string[], writes: boolean, unresolved: string[] }}
- */
-export function bashWriteTargets(command) {
-  const out = { targets: [], writes: false, unresolved: [] };
+/** Index of the command a run of words executes, after assignments and wrappers (and their options), or -1. */
+function headIndex(words, out) {
+  let k = 0;
+  for (;;) {
+    if (k >= words.length) return -1;
+    const w = words[k].word;
+    if (/^[A-Za-z_]\w*=/.test(w)) {
+      k++;
+      continue;
+    }
+    const spec = PREFIXES[path.basename(w)];
+    if (!spec || words[k].dyn) return k;
+    k++;
+    while (k < words.length && words[k].word.startsWith("-") && words[k].word.length > 1) {
+      const flag = words[k].word;
+      k++;
+      if (flag === "--") break;
+      if (spec.unresolved?.some((u) => flag === u || flag.startsWith(`${u}=`))) out.unresolved.push(`${path.basename(w)} ${flag}`);
+      if (spec.value.includes(flag) && k < words.length) k++;
+    }
+    k += spec.positional ?? 0;
+  }
+}
+
+function analyze(command, out, depth) {
+  if (depth > 4) {
+    out.unresolved.push("a command nested too deeply");
+    return;
+  }
   const toks = lexShell(command);
-  if (toks === null) return out;
+  if (toks === null) {
+    out.unresolved.push("a command the parser cannot model");
+    return;
+  }
+  for (const sub of toks.subs) analyze(sub, out, depth + 1);
   const add = (tok, text) => {
     const raw = tok.word;
     const base = path.basename(raw);
-    const globbed = /[*?[]/.test(base) && base.startsWith(".") && ".env".startsWith(base.split(/[*?[]/)[0]);
-    if (globbed) out.unresolved.push(raw);
-    // Only the name of the file matters: `$TMPDIR/out.log` is a known name in an unknown directory.
-    if (tok.dyn && /[$`]/.test(path.basename(raw))) out.unresolved.push(raw);
-    else if (text) out.writes = out.writes || (raw !== "/dev/null" && !/^&?\d+$|^-$/.test(raw));
-    if (!(tok.dyn && /[$`]/.test(path.basename(raw)))) out.targets.push(raw);
+    if (/[*?[]/.test(base) && base.startsWith(".") && ".env".startsWith(base.split(/[*?[]/)[0])) {
+      out.unresolved.push(raw);
+      return;
+    }
+    if (tok.dyn && !KNOWN_DIRECTORY.test(raw)) {
+      out.unresolved.push(raw);
+      return;
+    }
+    out.targets.push(raw);
+    if (text) out.writes = out.writes || (raw !== "/dev/null" && !/^&?\d+$|^-$/.test(raw));
   };
   let words = [];
   const finish = () => {
-    let k = 0;
-    while (k < words.length && (/^[A-Za-z_]\w*=/.test(words[k].word) || COMMAND_PREFIXES.has(words[k].word))) k++;
-    const [head, ...args] = words.slice(k);
+    const segment = words;
     words = [];
-    if (head === undefined) return;
+    const k = headIndex(segment, out);
+    const head = segment[k];
+    // The head cannot be identified: fall back to reading every word for a dotenv file.
+    if (head === undefined || head.dyn) {
+      if (segment.some((w) => envLike(w.word))) out.unresolved.push(segment.map((w) => w.word).join(" "));
+      return;
+    }
+    const args = segment.slice(k + 1);
     const name = path.basename(head.word);
     const plain = args.filter((a) => !a.word.startsWith("-"));
-    if (name === "tee") for (const a of plain) add(a, true);
+    if (SHELLS.has(name)) {
+      const c = args.findIndex((a) => /^-[A-Za-z]*c/.test(a.word) && !a.word.startsWith("--"));
+      if (c !== -1 && args[c + 1]) {
+        if (args[c + 1].dyn) out.unresolved.push(`${name} -c with a dynamic string`);
+        else analyze(args[c + 1].word, out, depth + 1);
+      }
+    } else if (name === "eval") {
+      if (args.some((a) => a.dyn)) out.unresolved.push("eval with a dynamic string");
+      else analyze(args.map((a) => a.word).join(" "), out, depth + 1);
+    } else if (name === "source" || name === ".") out.unresolved.push(`${name} runs a script the parser cannot read`);
+    else if (name === "tee") for (const a of plain) add(a, true);
     else if (name === "dd") {
       for (const a of args) if (a.word.startsWith("of=")) add({ word: a.word.slice(3), dyn: a.dyn }, true);
     } else if (name === "sed") {
@@ -600,23 +764,33 @@ export function bashWriteTargets(command) {
     if (REDIRECT_OUT.has(tok.op)) {
       const target = toks[t + 1];
       if (target && "word" in target) {
-        if (tok.op === ">&" && /^(\d+|-)$/.test(target.word)) {
-          t++;
-          continue;
-        }
-        add(target, true);
         t++;
+        if (!(tok.op === ">&" && /^(\d+|-)$/.test(target.word))) add(target, true);
       }
       continue;
     }
     if (tok.op.startsWith("<")) {
-      if (toks[t + 1] && "word" in toks[t + 1] && tok.op !== "<<" && tok.op !== "<<-") t++;
-      else if (toks[t + 1] && "word" in toks[t + 1]) t++;
+      if (toks[t + 1] && "word" in toks[t + 1]) t++;
       continue;
     }
     finish();
   }
   finish();
+}
+
+/**
+ * The files a Bash command writes, read with a shell-word tokenizer: redirects, `tee`, `dd of=`,
+ * `sed -i`, and the targets of `cp`, `mv`, `install`, `ln`, `touch` and `truncate`, also inside
+ * substitutions, `sh -c` strings and `eval`. `writes` is true when text is written to a file (a literal
+ * secret in the command is then a leak). `unresolved` lists what the parser cannot resolve (a target
+ * built by an expansion, a command it cannot model, `source`): the caller refuses those.
+ *
+ * @param {string} command
+ * @returns {{ targets: string[], writes: boolean, unresolved: string[] }}
+ */
+export function bashWriteTargets(command) {
+  const out = { targets: [], writes: false, unresolved: [] };
+  analyze(command, out, 0);
   return out;
 }
 

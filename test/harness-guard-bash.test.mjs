@@ -61,6 +61,11 @@ describe("guard-readonly-agent-bash: a read-only reviewer", () => {
     "cat .env.example",
     "node --test tests/a.test.mjs tests/b.test.mjs",
     "node --test",
+    "gh api repos/monte3l/.github --paginate --jq '.[].name'",
+    "gh api -H 'Accept: application/vnd.github+json' repos/monte3l/.github",
+    "grep -rn -A 3 TOKEN workflow-templates",
+    "egrep -r x tests",
+    "rg -A 2 x tests",
     "rg -n TOKEN workflow-templates",
     "grep -rn -e TOKEN workflow-templates",
   ];
@@ -127,6 +132,30 @@ describe("guard-readonly-agent-bash: a read-only reviewer", () => {
     "rg TOKEN /",
     "git show HEAD:.env",
     "git ls-files *.yml",
+    "gh api -XGET repos/monte3l/.github",
+    "gh api -fX x repos/monte3l/.github",
+    "gh api repos/monte3l/.github -Xf",
+    "gh api repos/monte3l/.github -Ff=x",
+    "gh api repos/monte3l/.github --hostname example.com",
+    "gh api -H 'Authorization: x' repos/monte3l/.github",
+    "gh api repos/monte3l/.github --paginate -X POST",
+    "gh api repos/monte3l/.github repos/monte3l/other",
+    "grep -r -A 2 x",
+    "grep -rn -e TOKEN",
+    "grep -r x workflow-templates/../..",
+    "grep -r x /etc",
+    "grep -r x ./",
+    "grep -r x ../other",
+    "egrep -r x .",
+    "fgrep -rn x",
+    "egrep -Z x f",
+    "diff -r a b",
+    "diff -N a b",
+    "rg --hidden x tests",
+    "rg -uu x tests",
+    "rg --no-ignore x tests",
+    "rg x ..",
+    "rg x",
   ];
   for (const command of allowed) {
     it(`allows ${JSON.stringify(command)}`, () => assert.equal(verdict(reviewer(command)), "allow"));
@@ -149,6 +178,83 @@ describe("guard-readonly-agent-bash: a read-only reviewer", () => {
   });
   it("asks when the named agent sends no command", () => {
     assert.equal(verdict(run("guard-readonly-agent-bash.mjs", { agent_type: AGENT, tool_input: {} })), "ask");
+  });
+});
+
+describe("guard-readonly-agent-bash: every read command against every operand shape", () => {
+  const A = "allow";
+  const Q = "ask";
+  // [command with its fixed flags, none, one path, two paths]; the shapes below are asked for every command whose operands are paths.
+  const pathCommands = [
+    ["ls", A, A, A],
+    ["cat", A, A, A],
+    ["head -n 5", A, A, A],
+    ["tail -n 5", A, A, A],
+    ["wc -l", A, A, A],
+    ["nl", A, A, A],
+    ["sort -u", A, A, A],
+    ["uniq -c", A, A, Q],
+    ["stat", A, A, A],
+    ["file -b", A, A, A],
+    ["cut -f1", A, A, A],
+    ["diff -u", A, A, A],
+    ["cmp -s", A, A, A],
+    ["realpath", A, A, Q],
+    ["shellcheck -x", A, A, A],
+    ["actionlint -oneline", A, A, A],
+    ["grep -n TOKEN", A, A, A],
+    ["egrep -n TOKEN", A, A, A],
+    ["fgrep -n TOKEN", A, A, A],
+  ];
+  const one = "blueprint/sync.json";
+  const two = "blueprint/sync.json blueprint/pins.json";
+  const shapes = ["/etc/passwd", "../x", ".", "blueprint/*.json", "secrets/x", "blueprint/sync.json /etc/passwd", "blueprint/sync.json ../x", "blueprint/sync.json out.txt/../../x"];
+  for (const [command, none, onePath, twoPaths] of pathCommands) {
+    it(`${command}: no operand, one, two`, () => {
+      assert.equal(verdict(reviewer(command)), none);
+      assert.equal(verdict(reviewer(`${command} ${one}`)), onePath);
+      assert.equal(verdict(reviewer(`${command} ${two}`)), twoPaths);
+    });
+    for (const shape of shapes) {
+      it(`${command} ${shape} asks`, () => assert.equal(verdict(reviewer(`${command} ${shape}`)), Q));
+    }
+  }
+  it("recursive searches name a path, and rg always does", () => {
+    for (const command of ["grep -rn TOKEN", "grep -rn -e TOKEN", "grep -r -A 2 TOKEN", "rg TOKEN", "rg -n TOKEN", "rg --files"]) {
+      assert.equal(verdict(reviewer(command)), Q, command);
+      assert.equal(verdict(reviewer(`${command} ${one}`)), A, `${command} ${one}`);
+    }
+  });
+  it("tr, basename, dirname and the commands without operands cap them", () => {
+    for (const [command, expected] of [
+      ["tr a b", A], ["tr a b c", Q], ["tr -d x", A], ["basename a", A], ["basename a b", A], ["basename a b c", Q],
+      ["dirname a", A], ["dirname a b", Q], ["pwd", A], ["pwd x", Q], ["true", A], ["true x", Q], ["which git", A], ["test -f x", A],
+    ]) assert.equal(verdict(reviewer(command)), expected, command);
+  });
+  it("jq reads a program, then paths inside the repository", () => {
+    for (const [command, expected] of [
+      ["jq . blueprint/pins.json", A], ["jq -r .name blueprint/pins.json", A], ["jq .", A], ["jq", Q],
+      ["jq . /etc/passwd", Q], ["jq . ../x", Q], ["jq -n env", Q], ["jq -n '$ENV'", Q], ["jq -n 'input'", Q],
+      ["jq --arg a b . blueprint/pins.json", A], ["jq -f prog.jq x", Q], ["jq --rawfile a x .", Q],
+    ]) assert.equal(verdict(reviewer(command)), expected, command);
+  });
+  it("find names start paths inside the repository and only known expressions", () => {
+    for (const [command, expected] of [
+      ["find workflow-templates -name '*.yml'", A], ["find workflow-templates -type f -maxdepth 1", A], ["find", Q], ["find .", Q],
+      ["find / -name x", Q], ["find .. -name x", Q], ["find workflow-templates -exec rm {} +", Q], ["find workflow-templates -fprint x", Q],
+      ["find workflow-templates -delete", Q], ["find workflow-templates -name x extra", Q],
+    ]) assert.equal(verdict(reviewer(command)), expected, command);
+  });
+  it("gh api takes only listed flags, one endpoint path, and no grouped short flags or URLs", () => {
+    for (const [command, expected] of [
+      ["gh api repos/monte3l/.github --paginate", A], ["gh api repos/monte3l/.github -q .name", A], ["gh api -XGET repos/x", Q],
+      ["gh api -iX POST repos/x", Q], ["gh api -ifx repos/x", Q], ["gh api https://example.com/x", Q], ["gh api //example.com/x", Q],
+      ["gh api", Q], ["gh pr view 3 --web", Q], ["gh pr view 3 -w", Q],
+    ]) assert.equal(verdict(reviewer(command)), expected, command);
+  });
+  it("lower-cased dotenv names ask", () => {
+    for (const command of ["cat .ENV", "cat .Env.Local", "grep x .ENV"]) assert.equal(verdict(reviewer(command)), Q, command);
+    assert.equal(verdict(reviewer("cat .ENV.EXAMPLE")), A);
   });
 });
 
@@ -183,6 +289,32 @@ describe("guard-secret-writes: Bash", () => {
     "sed -i '' s/a/b/ .env.local",
     "FOO=1 tee .env <<< x",
     "touch .env",
+    'echo "$(echo x > .env)"',
+    'echo "$(echo "a" > .env)"',
+    "echo `echo x > .env`",
+    'echo x > "unclosed',
+    `echo x > \${F}.txt`,
+    "echo x > $F",
+    "echo x > {.env,b}",
+    "echo x > .env{,}",
+    "env FOO=1 cp a .env",
+    "env -i cp a .env",
+    "env -u X cp a .env",
+    "sudo -u root tee .env",
+    "timeout 5 cp a .env",
+    "timeout -s KILL 5 cp a .env",
+    "nice -n 5 cp a .env",
+    "stdbuf -oL tee .env",
+    "xargs -I {} cp {} .env",
+    "bash -c 'echo x > .env'",
+    "sh -c \"cp a .env\"",
+    'eval "echo x > .env"',
+    'eval "$X"',
+    'bash -c "$X"',
+    "source ./x.sh",
+    ". ./x.sh",
+    "env -S 'cp a .env'",
+    "$CMD a .env",
     `sed -i 's/x/${token}/' notes.txt`,
     `dd if=in of=out.txt <<< ${token}`,
     `echo GH_TOKEN=${token} > notes.txt`,
@@ -194,6 +326,15 @@ describe("guard-secret-writes: Bash", () => {
     "echo X=1 > .env.example",
     "echo x > $TMPDIR/out.log",
     "cp a b.txt",
+    "bash -c 'echo hi'",
+    'eval "echo hi > out.txt"',
+    "env FOO=1 ls",
+    "timeout 5 ls",
+    'echo "$(date)"',
+    "echo $(ls) > out.txt",
+    'echo x > "$TMPDIR/out.log"',
+    "xargs -I {} echo {}",
+    "git commit -s -m \"$(cat <<'EOF'\nit's fine\nEOF\n)\"",
     "sed -i s/a/b/ notes.txt",
     "sed s/a/b/ .envrc.txt",
     "cat <<EOF\nhello\nEOF",

@@ -32,7 +32,6 @@ const GIT_READ = new Set([
 ]);
 const GH_GROUPS = new Set(["pr", "issue", "run", "workflow", "release", "repo", "label", "gist", "ruleset", "cache"]);
 const GH_READ_VERBS = new Set(["view", "list", "status", "diff", "checks"]);
-const PLAIN = new Set(["ls", "cat", "head", "tail", "wc", "grep", "egrep", "fgrep", "rg", "jq", "sort", "uniq", "stat", "file", "pwd", "basename", "dirname", "realpath", "cut", "tr", "nl", "diff", "cmp", "test", "true", "which", "shellcheck", "actionlint"]);
 
 function isEntryPoint() {
   try {
@@ -104,57 +103,178 @@ export function split(command) {
   return { segments };
 }
 
-// Any word, or the part of one after `=` or `:` (`--file=.env`, `HEAD:.env`), that names a dotenv file or a variant.
+// Any word, or the part of one after `=` or `:` (`--file=.env`, `HEAD:.env`), that names a dotenv file or a variant (any case).
 const isEnvArg = (arg) =>
   arg.split(/[=:]/).some((part) => {
-    const base = path.basename(part);
+    const base = path.basename(part).toLowerCase();
     return base.startsWith(".env") && !/\.(example|sample|template|dist)$/.test(base);
   });
 
-// Flags each command may carry; any other argument that starts with `-` is asked about.
-const FLAGS = {
-  ls: /^-[alhRtrS1dF]+$/,
-  cat: /^-[nbsEv]+$/,
-  head: /^-(?:[nc]|\d+|q)$/,
-  tail: /^-(?:[nc]|\d+|q)$/,
-  wc: /^-[lwcm]+$/,
-  grep: /^-[EFGPiIvwxcLlonshHrRqabzABCe]+$|^--(?:include|exclude|exclude-dir|color|line-number|ignore-case|files-with-matches|recursive)(?:=.*)?$/,
-  rg: /^-[nilwvcFEHhsSIAB]+$|^--(?:files|line-number|ignore-case|fixed-strings|files-with-matches|count|no-heading|type|glob)(?:=.*)?$/,
-  jq: /^-[nrcsSeR]+$|^--(?:arg|argjson|slurp|raw-output|compact-output|sort-keys|exit-status|null-input|tab)$/,
-  sort: /^-[nrufbdVkt]+$/,
-  uniq: /^-[cdui]+$/,
-  file: /^-[bi]+$/,
-  cut: /^-[dfcb].*$/,
-  tr: /^-[dsc]+$/,
-  diff: /^-[uqrNiwB]+$/,
-  cmp: /^-[sl]+$/,
-  find: /^-(?:name|iname|path|ipath|type|maxdepth|mindepth|mtime|size|empty|print|print0|not|and|or|o|a|newer|prune|H|L|P)$/,
-  shellcheck: /^-[xaSsfeP]$|^--(?:format|severity|shell|exclude|external-sources|check-sourced|color|source-path|norc)(?:=.*)?$/,
-  actionlint: /^-(?:oneline|no-color|color|verbose|version)$/,
+/**
+ * Why a path operand is refused: it must resolve to something strictly inside the working directory
+ * (never the directory itself or anything above or beside it), and not under a `secrets` directory.
+ * `-` (standard input) is fine.
+ */
+function pathProblem(operand, cwd) {
+  if (operand === "-") return null;
+  const base = path.resolve(cwd);
+  const resolved = path.resolve(base, operand);
+  if (resolved === base || !resolved.startsWith(base + path.sep)) return `${operand} is not strictly inside the repository`;
+  if (resolved.slice(base.length).toLowerCase().split(path.sep).includes("secrets")) return `${operand} is under a secrets directory`;
+  return null;
+}
+
+const NONE = /(?!)/;
+const NUMBER_FLAG = /^-(?:[nc]|\d+|q)$/;
+/**
+ * Every command that is not special-cased: the flags it may carry (any other argument that starts with `-` asks),
+ * the flags that take the next word as a value (not an operand), a cap on operands (`uniq IN OUT` writes OUT, so
+ * `uniq` takes one), and whether the operands are paths (each must pass `pathProblem`). A command with no entry asks.
+ */
+const SPEC = {
+  ls: { flags: /^-[alhRtrS1dF]+$/, paths: true },
+  cat: { flags: /^-[nbsEv]+$/, paths: true },
+  head: { flags: NUMBER_FLAG, value: ["-n", "-c"], paths: true },
+  tail: { flags: NUMBER_FLAG, value: ["-n", "-c"], paths: true },
+  wc: { flags: /^-[lwcm]+$/, paths: true },
+  nl: { flags: NONE, paths: true },
+  sort: { flags: /^-[nrufbdVkt]+$/, value: ["-k", "-t"], paths: true },
+  uniq: { flags: /^-[cdui]+$/, paths: true, max: 1 },
+  stat: { flags: NONE, paths: true },
+  file: { flags: /^-[bi]+$/, paths: true },
+  cut: { flags: /^-[dfcb].+$/, paths: true },
+  diff: { flags: /^-[uqiwB]+$/, paths: true, max: 2 },
+  cmp: { flags: /^-[sl]+$/, paths: true, max: 2 },
+  tr: { flags: /^-[dsc]+$/, max: 2 },
+  basename: { flags: NONE, max: 2 },
+  dirname: { flags: NONE, max: 1 },
+  realpath: { flags: NONE, paths: true, max: 1 },
+  pwd: { flags: NONE, max: 0 },
+  which: { flags: NONE, max: 3 },
+  true: { flags: NONE, max: 0 },
+  test: { flags: /^-[a-z]$/, max: 3 },
+  shellcheck: { flags: /^-[xaSsfeP]$|^--(?:format|severity|shell|exclude|external-sources|check-sourced|color|source-path|norc)(?:=.*)?$/, paths: true },
+  actionlint: { flags: /^-(?:oneline|no-color|color|verbose|version)$/, paths: true },
 };
-const GREP_RECURSIVE = /^-[A-Za-z]*[rR]|^--recursive$/;
-const BROAD_PATH = /^(?:\.|\.\.|\/.*|~.*|\.\.\/.*)$/;
+const SEARCH_FLAGS = {
+  grep: /^-[EFGPiIvwxcLlonshHrRqabzABCe]+$|^--(?:include|exclude|exclude-dir|color|line-number|ignore-case|files-with-matches|recursive)(?:=.*)?$/,
+  rg: /^-[nilwvcFHhsSIAB]+$|^--(?:files|line-number|ignore-case|fixed-strings|files-with-matches|count|no-heading|type|glob)(?:=.*)?$/,
+};
+const FIND_FLAGS = /^-(?:name|iname|path|ipath|type|maxdepth|mindepth|mtime|size|empty|print|print0|not|and|or|o|a|newer|prune)$/;
+const FIND_VALUE = new Set(["-name", "-iname", "-path", "-ipath", "-type", "-maxdepth", "-mindepth", "-mtime", "-size", "-newer"]);
+const JQ_FLAGS = /^-[nrcsSeR]+$|^--(?:arg|argjson|slurp|raw-output|compact-output|sort-keys|exit-status|null-input|tab)$/;
+// A jq program can read the environment, other files and standard error.
+const JQ_REACH = /\benv\b|\$ENV|\binput_filename\b|\binclude\b|\bimport\b|\binputs?\b|\bdebug\b|\bstderr\b|\$__/;
+
+function judgeSpec(cmd, spec, args, cwd) {
+  const operands = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a.length > 1 && a.startsWith("-")) {
+      if (!spec.flags.test(a)) return `${cmd} flag ${a} is not on the allowed list`;
+      if (spec.value?.includes(a)) i++;
+      continue;
+    }
+    operands.push(a);
+  }
+  if (spec.max !== undefined && operands.length > spec.max) return `${cmd} takes at most ${spec.max} operand${spec.max === 1 ? "" : "s"}`;
+  if (spec.paths) {
+    for (const operand of operands) {
+      const problem = pathProblem(operand, cwd);
+      if (problem !== null) return problem;
+    }
+  }
+  return null;
+}
+
+/**
+ * grep, egrep, fgrep and rg: the options are read properly (a value such as `-A 3`, `-e PATTERN` or
+ * `--include X` is not an operand), every path must sit strictly inside the working directory, and a
+ * recursive search (always, for rg) must name at least one.
+ */
+function judgeSearch(cmd, args, cwd) {
+  const family = cmd === "rg" ? "rg" : "grep";
+  const valueShort = family === "rg" ? "AB" : "ABCefm";
+  const valueLong = /^--(?:include|exclude|exclude-dir|type|glob|max-count)$/;
+  const operands = [];
+  let recursive = family === "rg";
+  let patternGiven = false;
+  let files = false;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a.length > 1 && a.startsWith("-")) {
+      if (!SEARCH_FLAGS[family].test(a)) return `${cmd} flag ${a} is not on the allowed list`;
+      if (a.startsWith("--")) {
+        if (a === "--recursive") recursive = true;
+        if (a === "--files") files = true;
+        if (valueLong.test(a)) i++;
+        continue;
+      }
+      const cluster = a.slice(1);
+      if (family === "grep" && /[rR]/.test(cluster)) recursive = true;
+      if (family === "grep" && cluster.includes("e")) patternGiven = true;
+      if ([...cluster].some((ch) => valueShort.includes(ch))) i++;
+      continue;
+    }
+    operands.push(a);
+  }
+  const paths = patternGiven || files ? operands : operands.slice(1);
+  if (recursive && paths.length === 0) return `recursive ${cmd} needs named paths strictly inside the repository`;
+  for (const p of paths) {
+    const problem = pathProblem(p, cwd);
+    if (problem !== null) return problem;
+  }
+  return null;
+}
+
+function judgeFind(args, cwd) {
+  let i = 0;
+  while (/^-[HLP]$/.test(args[i] ?? "")) i++;
+  const starts = [];
+  while (i < args.length && !args[i].startsWith("-") && args[i] !== "!") starts.push(args[i++]);
+  if (starts.length === 0) return "find needs a named start path";
+  for (const p of starts) {
+    const problem = pathProblem(p, cwd);
+    if (problem !== null) return problem;
+  }
+  for (; i < args.length; i++) {
+    const a = args[i];
+    if (a === "!") continue;
+    if (!FIND_FLAGS.test(a)) return `find expression ${a} is not on the allowed list`;
+    if (FIND_VALUE.has(a)) i++;
+  }
+  return null;
+}
+
+function judgeJq(args, cwd) {
+  const operands = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a.length > 1 && a.startsWith("-")) {
+      if (!JQ_FLAGS.test(a)) return `jq flag ${a} is not on the allowed list`;
+      if (a === "--arg" || a === "--argjson") i += 2;
+      continue;
+    }
+    operands.push(a);
+  }
+  if (operands.length === 0 || JQ_REACH.test(operands[0])) return "jq program is missing or reaches the environment or other files";
+  for (const p of operands.slice(1)) {
+    const problem = pathProblem(p, cwd);
+    if (problem !== null) return problem;
+  }
+  return null;
+}
 
 /** @returns {string | null} why `words` is not a known read command, or null when it is. */
-function judge(words) {
+function judge(words, cwd) {
   const [cmd, ...args] = words;
   if (/^[A-Za-z_]\w*=/.test(cmd)) return "an environment assignment before the command";
   if (args.some(isEnvArg)) return "a dotenv secret file";
-  if (FLAGS[cmd]) {
-    const bad = args.find((a) => a.length > 1 && a.startsWith("-") && !FLAGS[cmd].test(a));
-    if (bad !== undefined) return `${cmd} flag ${bad} is not on the allowed list`;
-  }
-  // A recursive search with no named path, or one that starts at the root, home or a parent, can reach a dotenv file.
-  if (cmd === "rg" || (cmd === "grep" && args.some((a) => GREP_RECURSIVE.test(a)))) {
-    const operands = args.filter((a) => !a.startsWith("-"));
-    const needed = cmd === "rg" && args.includes("--files") ? 1 : args.some((a) => a === "-e" || a === "-f") ? 1 : 2;
-    if (operands.length < needed || operands.some((a) => BROAD_PATH.test(a))) return `recursive ${cmd} needs a named path below the repository`;
-  }
   switch (cmd) {
     case "git": {
       const sub = args[0];
       if (!sub || !GIT_READ.has(sub)) return `git ${sub ?? ""} is not on the read list`.replace("  ", " ");
-      if (args.some((a) => /^(--output|-o$|--ext-diff|--textconv|--open-files-in-pager|-O)/.test(a))) return "a git option that writes or runs a program";
+      if (args.some((a) => /^(--output|-o$|-O|--ext-diff|--textconv|--open-files-in-pager|--no-index|--git-dir|--work-tree|--exec-path)/.test(a))) return "a git option that writes, runs a program or leaves the repository";
       return null;
     }
     case "gh":
@@ -166,34 +286,50 @@ function judge(words) {
       return "node outside --test and the docs-kit --check";
     }
     case "bash":
-      return args[0] === "-n" && args.length === 2 ? null : "bash other than `bash -n FILE`";
-    case "find":
-      return null;
+      return args[0] === "-n" && args.length === 2 && pathProblem(args[1], cwd) === null ? null : "bash other than `bash -n FILE` inside the repository";
+    case "grep":
+    case "egrep":
+    case "fgrep":
     case "rg":
-    case "sort":
-    case "diff":
-      return null;
+      return judgeSearch(cmd, args, cwd);
+    case "find":
+      return judgeFind(args, cwd);
+    case "jq":
+      return judgeJq(args, cwd);
     default:
-      return PLAIN.has(cmd) ? null : `${cmd} is not on the read list`;
+      return Object.hasOwn(SPEC, cmd) ? judgeSpec(cmd, SPEC[cmd], args, cwd) : `${cmd} is not on the read list`;
   }
+}
+
+// `gh api` is read-only only as a GET with no body, so every flag must be on this list; anything else asks.
+// A flag with a value takes the next argument (or `--flag=value`); `-X` and `--method` must say GET.
+const GH_API_BOOLEAN = new Set(["--paginate", "--slurp", "--silent", "-i", "--include"]);
+const GH_API_VALUE = new Set(["--jq", "-q", "--template", "-t", "--cache", "-H", "--header", "-X", "--method"]);
+function judgeGhApi(args) {
+  const operands = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (!a.startsWith("-") || a === "-") {
+      operands.push(a);
+      continue;
+    }
+    if (GH_API_BOOLEAN.has(a)) continue;
+    const eq = a.startsWith("--") ? a.indexOf("=") : -1;
+    const flag = eq === -1 ? a : a.slice(0, eq);
+    if (!GH_API_VALUE.has(flag)) return `gh api flag ${a} is not on the allowed list`;
+    const value = eq === -1 ? args[++i] : a.slice(eq + 1);
+    if (value === undefined) return `gh api flag ${a} has no value`;
+    if ((flag === "-X" || flag === "--method") && value.toUpperCase() !== "GET") return "gh api with a method other than GET";
+    if ((flag === "-H" || flag === "--header") && !/^Accept:/i.test(value)) return "gh api with a header other than Accept";
+  }
+  if (operands.length !== 1 || operands[0] === "graphql" || /^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(operands[0])) return "gh api needs exactly one REST endpoint path";
+  return null;
 }
 
 function judgeGh(args) {
   const [group, verb] = args;
-  if (group === "api") {
-    const rest = args.slice(1);
-    for (let i = 0; i < rest.length; i++) {
-      const a = rest[i];
-      if (/^(-f|-F|--field|--raw-field|--input)/.test(a) || /^--(field|raw-field|input)=/.test(a)) return "gh api with a request body";
-      if (a === "-X" || a === "--method" || /^-X./.test(a) || a.startsWith("--method=")) {
-        const value = a === "-X" || a === "--method" ? rest[i + 1] : a.startsWith("--method=") ? a.slice(9) : a.slice(2);
-        if (String(value).toUpperCase() !== "GET") return "gh api with a method other than GET";
-      }
-    }
-    if (rest.some((a) => a === "graphql")) return "gh api graphql is a POST";
-    return null;
-  }
-  if (GH_GROUPS.has(group) && GH_READ_VERBS.has(verb)) return null;
+  if (group === "api") return judgeGhApi(args.slice(1));
+  if (GH_GROUPS.has(group) && GH_READ_VERBS.has(verb)) return args.some((a) => a === "-w" || a === "--web") ? "gh with --web opens a browser" : null;
   return `gh ${group ?? ""} ${verb ?? ""} is not on the read list`.replace(/\s+/g, " ").trim();
 }
 
@@ -203,11 +339,11 @@ function judgeGh(args) {
  * @param {string} command
  * @returns {string | null}
  */
-export function judgeCommand(command) {
+export function judgeCommand(command, cwd = process.cwd()) {
   const parsed = split(command);
   if ("reason" in parsed) return `the command has ${parsed.reason}`;
   for (const words of parsed.segments) {
-    const reason = judge(words);
+    const reason = judge(words, cwd);
     if (reason !== null) return reason;
   }
   return null;
@@ -233,7 +369,7 @@ if (isEntryPoint()) {
   }
   if (!READONLY_AGENTS.includes(input.agent_type)) process.exit(0);
   const command = input.tool_input?.command;
-  const reason = typeof command === "string" ? judgeCommand(command) : "the command is missing";
+  const reason = typeof command === "string" ? judgeCommand(command, typeof input.cwd === "string" ? input.cwd : process.cwd()) : "the command is missing";
   if (reason === null) process.exit(0);
   process.stdout.write(
     JSON.stringify({
