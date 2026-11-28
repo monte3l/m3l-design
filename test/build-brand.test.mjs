@@ -122,6 +122,27 @@ describe("brand pack", () => {
     });
   });
 
+  describe("GitHub App avatars", () => {
+    const apps = path.join(root, "avatars/apps");
+    const names = ["release", "sync", "env-janitor", "audit", "planning"];
+    for (const name of names) {
+      it(`monte3l-${name} is an accessible SVG with a license tag and a 500 px PNG`, () => {
+        const text = readFileSync(path.join(apps, `${name}.svg`), "utf8");
+        assert.ok(text.includes(`SPDX-License-${"Identifier"}: LicenseRef-MONTE3L-Brand`));
+        assert.match(text, new RegExp(`<title id="[\\w-]+">monte3l-${name}</title>`));
+        const png = readFileSync(path.join(apps, `${name}-500.png`));
+        assert.equal(png.readUInt32BE(16), 500);
+        assert.equal(png.readUInt32BE(20), 500);
+      });
+    }
+
+    it("differ from one another, so no two Apps share an emblem", () => {
+      const emblems = names.map((name) => readFileSync(path.join(apps, `${name}.svg`), "utf8").match(/<g transform="translate\(500 565\)[\s\S]*<\/g>\n<\/svg>/)?.[0]);
+      assert.ok(emblems.every(Boolean));
+      assert.equal(new Set(emblems).size, names.length);
+    });
+  });
+
   it("is up to date with the build", () => {
     execFileSync(process.execPath, [path.join(root, "bin/build-brand.mjs"), "--check"], { stdio: "pipe" });
   });

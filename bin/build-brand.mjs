@@ -41,6 +41,8 @@ import {
   resolveTheme,
 } from "../source/lib/design-tokens.mjs";
 import {
+  APP_EMBLEMS,
+  appAvatarSvg,
   avatarSvg,
   cardSvg,
   lockupSvg,
@@ -104,6 +106,9 @@ async function loadColours() {
   return { light: pick("light"), dark: pick("dark") };
 }
 
+/** The organization's GitHub Apps, named as `monte3l-<name>`. */
+const APP_NAMES = Object.keys(APP_EMBLEMS);
+
 const fill = (value) => `fill="${value}"`;
 
 /** Every text file of the pack, as `[path relative to source/brand, content]`. */
@@ -158,6 +163,14 @@ function textFiles({ light, dark }) {
     "@avatars/giulmonte.svg",
     SPDX + avatarSvg({ id: "m3l-giulmonte", title: "giulmonte", ground: light.wine100, bands: [light.wine300, light.wine500, light.wine700, light.ink] }),
   );
+
+  // The five GitHub Apps: a solid accent ground and one pale peak, told apart by the emblem cut into it.
+  for (const name of APP_NAMES) {
+    files.set(
+      `@avatars/apps/${name}.svg`,
+      SPDX + appAvatarSvg({ id: `m3l-app-${name}`, title: `monte3l-${name}`, name, ground: light.wine, peak: light.ground }),
+    );
+  }
 
   for (const [file, width, height] of [
     ["social/social-preview.svg", 1280, 640],
@@ -287,6 +300,7 @@ function rasterJobs(colours, texts, fontCss = "") {
     ]),
     ["social/social-preview.png", { body: strip(texts.get("social/social-preview.svg")), width: 1280, height: 640, fontCss }],
     ["social/og-image.png", { body: strip(texts.get("social/og-image.svg")), width: 1200, height: 630, fontCss }],
+    ...APP_NAMES.map((name) => [`@avatars/apps/${name}-500.png`, { body: strip(texts.get(`@avatars/apps/${name}.svg`)), width: 500, height: 500 }]),
     ...["enri3l", "giulmonte"].flatMap((name) =>
       [1024, 500].map((size) => [`@avatars/${name}-${size}.png`, { body: strip(texts.get(`@avatars/${name}.svg`)), width: size, height: size }]),
     ),

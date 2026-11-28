@@ -52,6 +52,8 @@ path = [
   "source/brand/social/**",
   "avatars/*.svg",
   "avatars/*.png",
+  "avatars/apps/*.svg",
+  "avatars/apps/*.png",
   "bin/lib/brand-glyphs.mjs",
 ]
 precedence = "override"

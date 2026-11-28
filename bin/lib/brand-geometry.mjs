@@ -89,6 +89,66 @@ ${peaks}
 `;
 }
 
+const arc = (r, from, to) => {
+  const at = (deg) => [round(r * Math.cos((deg * Math.PI) / 180)), round(r * Math.sin((deg * Math.PI) / 180))];
+  const [x0, y0] = at(from);
+  const [x1, y1] = at(to);
+  return `M${x0} ${y0}A${r} ${r} 0 0 1 ${x1} ${y1}`;
+};
+
+/** A chevron at the end of a clockwise arc: tip on the arc, wings back along the tangent. */
+const arrowhead = (r, deg) => {
+  const rad = (deg * Math.PI) / 180;
+  const tip = [r * Math.cos(rad), r * Math.sin(rad)];
+  const tangent = [-Math.sin(rad), Math.cos(rad)];
+  const normal = [Math.cos(rad), Math.sin(rad)];
+  const wing = (side) => `${round(tip[0] - tangent[0] * 46 + normal[0] * side * 40)} ${round(tip[1] - tangent[1] * 46 + normal[1] * side * 40)}`;
+  return `M${wing(1)}L${round(tip[0])} ${round(tip[1])}L${wing(-1)}`;
+};
+
+const stroked = (c, width, d) => `<path d="${d}" fill="none" stroke="${c}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round"/>`;
+const solid = (c, d) => `<path d="${d}" fill="${c}" stroke="${c}" stroke-width="34" stroke-linejoin="round"/>`;
+
+/**
+ * The emblems of the five GitHub Apps, each drawn inside a 300-unit box centred
+ * on the origin and meant to be knocked out of the peak in the ground colour.
+ * Strokes are 34 wide with round ends so they hold at 40 px, where an App sits
+ * in a list. One idea each, no text: release plants a flag on the summit, sync
+ * is two arrows chasing each other, env-janitor is a broom, audit is a lens with
+ * a tick, planning is a route through four waypoints.
+ */
+export const APP_EMBLEMS = {
+  release: (c) => stroked(c, 34, "M-50 -120V120") + solid(c, "M-50 -120L90 -62L-50 -4Z"),
+  sync: (c) =>
+    stroked(c, 34, arc(96, -160, -20)) + stroked(c, 34, arrowhead(96, -20)) + stroked(c, 34, arc(96, 20, 160)) + stroked(c, 34, arrowhead(96, 160)),
+  "env-janitor": (c) =>
+    `<g transform="rotate(35)">${stroked(c, 30, "M0 -140V10")}${stroked(c, 30, "M-48 20H48")}` +
+    `${stroked(c, 26, "M-42 50L-52 128")}${stroked(c, 26, "M-14 50L-17 134")}${stroked(c, 26, "M14 50L17 134")}${stroked(c, 26, "M42 50L52 128")}</g>`,
+  audit: (c) =>
+    `<circle cx="-14" cy="-24" r="80" fill="none" stroke="${c}" stroke-width="34"/>${stroked(c, 34, "M44 34L112 102")}${stroked(c, 34, "M-50 -22L-20 8L28 -56")}`,
+  planning: (c) =>
+    `<circle cx="-82" cy="96" r="30" fill="none" stroke="${c}" stroke-width="22"/>` +
+    `<path d="M-52 80C50 40 -90 -20 40 -78" fill="none" stroke="${c}" stroke-width="24" stroke-linecap="round" stroke-dasharray="1 46"/>` +
+    `<circle cx="74" cy="-96" r="38" fill="${c}"/>`,
+};
+
+/**
+ * A GitHub App avatar: one large peak in the `peak` colour on the `ground`, with
+ * the App's emblem cut out of it in the ground colour. The solid ground tells the
+ * Apps from the two personal avatars (contours, no emblem), and the emblem alone
+ * tells each App from its siblings.
+ */
+export function appAvatarSvg({ id, title, name, ground, peak }) {
+  const scale = 1.3;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" role="img" aria-labelledby="${id}-t">
+<title id="${id}-t">${title}</title>
+<rect width="1000" height="1000" fill="${ground}"/>
+<path fill="${peak}" transform="translate(${round(500 - 500 * scale)} ${round(455 - 495 * scale)}) scale(${scale})" d="${peakPath(500)}"/>
+<g transform="translate(500 565) scale(1.2)">${APP_EMBLEMS[name](ground)}</g>
+</svg>
+`;
+}
+
 /** A complete symbol file. `box` defaults to the square 1000 canvas. */
 export function symbolSvg({ id = "m3l", title = "MONTE3L", style = "", box = "0 0 1000 1000", ...rest }) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${box}" role="img" aria-labelledby="${id}-t">
