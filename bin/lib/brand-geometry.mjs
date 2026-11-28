@@ -125,7 +125,7 @@ export const APP_EMBLEMS = {
     `<g transform="rotate(35)">${stroked(c, 30, "M0 -140V10")}${stroked(c, 30, "M-48 20H48")}` +
     `${stroked(c, 26, "M-42 50L-52 128")}${stroked(c, 26, "M-14 50L-17 134")}${stroked(c, 26, "M14 50L17 134")}${stroked(c, 26, "M42 50L52 128")}</g>`,
   audit: (c) =>
-    `<circle cx="-14" cy="-24" r="80" fill="none" stroke="${c}" stroke-width="34"/>` + stroked(c, 34, "M44 34L112 102") + stroked(c, 34, "M-50 -22L-20 8L28 -56"),
+    `<circle cx="-14" cy="-24" r="80" fill="none" stroke="${c}" stroke-width="34"/>${stroked(c, 34, "M44 34L112 102")}${stroked(c, 34, "M-50 -22L-20 8L28 -56")}`,
   planning: (c) =>
     `<circle cx="-82" cy="96" r="30" fill="none" stroke="${c}" stroke-width="22"/>` +
     `<path d="M-52 80C50 40 -90 -20 40 -78" fill="none" stroke="${c}" stroke-width="24" stroke-linecap="round" stroke-dasharray="1 46"/>` +
